@@ -789,8 +789,8 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
     if headers:
         actual_headers.update(headers)
 
-    # ── DDoS-Guard обход: fearproject.ru через curl_cffi ──────────────────
-    if "fearproject.ru" in url:
+    # ── DDoS-Guard обход: fearproject.ru / yooma.su через curl_cffi ───────
+    if "fearproject.ru" in url or "yooma.su" in url:
         for attempt in range(3):
             data = await _fear_request("GET", url, headers=actual_headers, params=params, timeout=20)
             if data is not None:
