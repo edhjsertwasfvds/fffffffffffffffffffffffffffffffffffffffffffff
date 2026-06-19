@@ -4902,10 +4902,11 @@ def _load_vdf_checks():
 
 def _save_vdf_checks_to_file():
     try:
-        VDF_CHECKS_FILE.write_text(json.dumps({
+        data = {
             "counter": _vdf_check_counter,
             "checks": _vdf_checks,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        }
+        _save_json_atomic(VDF_CHECKS_FILE, data)
     except Exception as e:
         print(f"⚠️ Ошибка сохранения vdf_checks.json: {e}")
 
@@ -8185,6 +8186,27 @@ async def on_ready():
             pass
     if restored:
         _log(f"🔄 [DB] Восстановлено {restored} файлов из PostgreSQL", discord=False)
+
+    # Перезагружаем VDF checks (файл мог быть восстановлен из PostgreSQL, а счётчик загружался при импорте)
+    _load_vdf_checks()
+
+    # ── Восстановление stats_cache (кэш банов/мутов стаффа) ──
+    if _db.db_is_available():
+        try:
+            cache_restored = 0
+            for key in _db.db_load_all_keys():
+                if key.startswith("fearsearch_bans_") and key.endswith(".json"):
+                    sid = key.replace("fearsearch_bans_", "").replace(".json", "")
+                    cache_path = CACHE_DIR / f"fearsearch_bans_{sid}.json"
+                    if not cache_path.exists() or cache_path.stat().st_size < 5:
+                        data = _db.db_load(key)
+                        if data is not None:
+                            cache_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                            cache_restored += 1
+            if cache_restored:
+                _log(f"🔄 [DB] Восстановлено {cache_restored} файлов stats_cache из PostgreSQL", discord=False)
+        except Exception as e:
+            _log(f"⚠️ [DB] Ошибка восстановления stats_cache: {e}", discord=False)
     
     # Логируем доступные каналы для отладки 404 ошибок
     for guild in bot.guilds:
