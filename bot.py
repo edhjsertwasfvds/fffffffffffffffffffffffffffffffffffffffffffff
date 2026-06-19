@@ -2132,20 +2132,19 @@ def _period_label(date_from: datetime | None, date_to: datetime | None) -> str:
     return f"до {date_to.strftime(fmt)}"
 
 def _month_weeks(year: int, month: int) -> list[tuple[datetime, datetime]]:
-    """Возвращает недели начиная со среды (weekday=2).
-    Неделя: среда 00:00 — следующий вторник 23:59:59.
+    """Возвращает недели начиная с понедельника (weekday=0).
+    Неделя: понедельник 00:00 — воскресенье 23:59:59.
     Показываем только недели, пересекающиеся с указанным месяцем."""
     import calendar
     _, days_in_month = calendar.monthrange(year, month)
 
-    # Находим первую среду в месяце или ближайшую среду до начала месяца
     first_day = datetime(year, month, 1, tzinfo=timezone.utc)
     # weekday(): 0=пн, 1=вт, 2=ср, 3=чт, 4=пт, 5=сб, 6=вс
-    days_since_wed = (first_day.weekday() - 2) % 7  # сколько дней прошло с последней среды
-    first_wed = first_day - timedelta(days=days_since_wed)
+    days_since_mon = first_day.weekday()  # сколько дней прошло с последнего понедельника
+    first_mon = first_day - timedelta(days=days_since_mon)
 
     weeks = []
-    current = first_wed
+    current = first_mon
     month_end = datetime(year, month, days_in_month, 23, 59, 59, tzinfo=timezone.utc)
     while current <= month_end:
         wstart = current
