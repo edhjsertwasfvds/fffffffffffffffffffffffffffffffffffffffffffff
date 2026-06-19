@@ -80,7 +80,7 @@ REPORTS_ALERT_ROLE_ID  = _env_int("REPORTS_ALERT_ROLE_ID", 1501738368026017912) 
 TOKEN_ALERT_CHANNEL_ID = _env_int("TOKEN_ALERT_CHANNEL_ID", 1501738905597251674)  # канал для уведомления об устаревшем токене
 SUSPICIOUS_CHANNEL_ID  = _env_int("SUSPICIOUS_CHANNEL_ID", 1501738683747926159)   # tracked-admins
 WATCH_CHANNEL_ID       = _env_int("WATCH_CHANNEL_ID", 1506424445852454983)        # 1000top-cheak (мониторинг топа)
-BAN_NOTIFY_CHANNEL_ID  = _env_int("BAN_NOTIFY_CHANNEL_ID", 1503035873816744069)   # уведомления о банах на yooma/cs2red
+BAN_NOTIFY_CHANNEL_ID  = _env_int("BAN_NOTIFY_CHANNEL_ID", 1503035873816744069)   # уведомления о банах на yooma
 STAFF_PUNISH_LOG_CHANNEL_ID = _env_int("STAFF_PUNISH_LOG_CHANNEL_ID", 1510955528787071077)
 ALERT_ROLE_ID          = _env_int("ALERT_ROLE_ID", 1463269872350920704)
 API_BASE               = os.getenv("API_BASE", "https://api.fearproject.ru").strip() or "https://api.fearproject.ru"
@@ -799,8 +799,8 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
     if headers:
         actual_headers.update(headers)
 
-    # ── DDoS-Guard обход: fearproject.ru / yooma.su / cs2red.ru через curl_cffi ───────
-    if "fearproject.ru" in url or "yooma.su" in url or "cs2red.ru" in url:
+    # ── DDoS-Guard обход: fearproject.ru / yooma.su через curl_cffi ───────
+    if "fearproject.ru" in url or "yooma.su" in url:
         for attempt in range(3):
             data = await _fear_request("GET", url, headers=actual_headers, params=params, timeout=20)
             if data is not None:
@@ -1944,10 +1944,9 @@ async def cmd_scan_players(interaction: discord.Interaction):
                     profile_task = _get_profile(session, sid)
                     steam_task   = _fetch_external_steam_info(session, sid)
                     yooma_task   = _check_yooma_ban(session, sid, player.get("nickname", ""))
-                    cs2red_task  = _check_cs2red_ban(session, sid)
                     
-                    profile, steam, yooma, cs2red = await asyncio.gather(
-                        profile_task, steam_task, yooma_task, cs2red_task
+                    profile, steam, yooma = await asyncio.gather(
+                        profile_task, steam_task, yooma_task
                     )
                     
                     # 1. Проверка VAC (через внешний сайт или Fear API)
@@ -1993,13 +1992,7 @@ async def cmd_scan_players(interaction: discord.Interaction):
                         if active:
                             flags.append(f"🔴 Yooma: {active[0]['reason']}")
 
-                    # 5. Проверка CS2Red
-                    if cs2red.get("found"):
-                        active = [b for b in cs2red["bans"] if b["status"] == "active"]
-                        if active:
-                            flags.append(f"🔴 CS2Red: {active[0]['reason']}")
-                    
-                    # 6. Проверка КД
+                    # 5. Проверка КД
                     kills = player.get("kills", 0)
                     deaths = player.get("deaths", 1) or 1
                     kd = kills / deaths
@@ -7002,10 +6995,10 @@ async def before_reports():
     await bot.wait_until_ready()
 
 
-# ── Мониторинг банов на yooma.su и cs2red.ru ─────────────────────────────────
+# ── Мониторинг банов на yooma.su ─────────────────────────────────
 
 # Кэш уже проверенных банов чтобы не спамить повторно
-# { steamid: {"yooma": set(ban_ids), "cs2red": set(ban_ids)} }
+# { steamid: {"yooma": set(ban_ids)} }
 _ban_notify_cache: dict = {}
 
 
@@ -7259,92 +7252,20 @@ def _is_cheat_reason(reason: str) -> bool:
     reason_lower = str(reason).lower()
     return any(kw in reason_lower for kw in CHEAT_KEYWORDS)
 
-async def _check_cs2red_ban(session: aiohttp.ClientSession, steamid: str) -> dict:
-    """
-    Проверяет баны на cs2red.ru.
-    """
-    url = f"https://cs2red.ru/api/data/bans?begin=0&count=8&search={steamid}"
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Referer": "https://cs2red.ru/bans",
-            "Origin": "https://cs2red.ru",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Connection": "keep-alive"
-        }
-        data = await _fetch_json(session, url, headers=headers)
-        if not data or not data.get("success"):
-            return {"found": False, "bans": []}
-        bans_raw = data.get("bans", [])
-        if not bans_raw:
-            return {"found": False, "bans": []}
-
-        now_ts = datetime.now(timezone.utc).timestamp()
-        processed = []
-        for b in bans_raw:
-            action = b.get("action", {})
-            # action.steamid64 — это забаненный игрок
-            player_sid = action.get("steamid64", "")
-            if player_sid != steamid:
-                continue  # не наш игрок
-
-            unban_id = b.get("unbanId")
-            end_ts   = b.get("endTimeStamp", 0)
-            start_ts = b.get("timestamp", 0)
-
-            # Активный: unbanId == null И срок не истёк
-            if unban_id is None and (end_ts == 0 or end_ts > now_ts):
-                status = "active"
-            else:
-                status = "inactive"  # разбан или истёк — не нужен
-
-            try:
-                created_str = _msk_from_timestamp(start_ts)
-            except Exception:
-                created_str = "—"
-
-            if end_ts and end_ts > 0:
-                try:
-                    dur_sec = end_ts - start_ts
-                    dur_str = f"{dur_sec // 86400} дн." if dur_sec >= 86400 else f"{dur_sec // 3600} ч."
-                except Exception:
-                    dur_str = "—"
-            else:
-                dur_str = "Навсегда"
-
-            processed.append({
-                "id":      b.get("id"),
-                "reason":  b.get("reason", "—"),
-                "created": created_str,
-                "duration": dur_str,
-                "status":  status,
-                "nick":    action.get("nick", steamid),
-            })
-
-        return {"found": bool(processed), "bans": processed}
-    except Exception as e:
-        _log(f"⚠️ cs2red check {steamid}: {e}")
-        return {"found": False, "bans": []}
-
-
 async def _notify_bans_for_player(steamid: str, nickname: str, channel, session: aiohttp.ClientSession = None):
-    """Проверяет игрока на yooma+cs2red и отправляет уведомление если есть новые баны."""
+    """Проверяет игрока на yooma и отправляет уведомление если есть новые баны."""
     if steamid not in _ban_notify_cache:
-        _ban_notify_cache[steamid] = {"yooma": set(), "cs2red": set()}
+        _ban_notify_cache[steamid] = {"yooma": set()}
 
     async def _do_check(s):
-        yooma_data, cs2red_data = await asyncio.gather(
-            _check_yooma_ban(s, steamid, nickname),
-            _check_cs2red_ban(s, steamid)
-        )
-        return yooma_data, cs2red_data
+        yooma_data = await _check_yooma_ban(s, steamid, nickname)
+        return yooma_data
 
     if session:
-        yooma_data, cs2red_data = await _do_check(session)
+        yooma_data = await _do_check(session)
     else:
         async with aiohttp.ClientSession() as s:
-            yooma_data, cs2red_data = await _do_check(s)
+            yooma_data = await _do_check(s)
 
     steam_url   = f"https://steamcommunity.com/profiles/{steamid}"
     new_found   = False
@@ -7357,7 +7278,7 @@ async def _notify_bans_for_player(steamid: str, nickname: str, channel, session:
             bid = p["id"]
             real_sid = p.get("steamid", steamid)
             if real_sid not in _ban_notify_cache:
-                _ban_notify_cache[real_sid] = {"yooma": set(), "cs2red": set()}
+                _ban_notify_cache[real_sid] = {"yooma": set()}
             if bid in _ban_notify_cache[real_sid]["yooma"]:
                 continue
             _ban_notify_cache[real_sid]["yooma"].add(bid)
@@ -7426,33 +7347,6 @@ async def _notify_bans_for_player(steamid: str, nickname: str, channel, session:
                             _log(f"❌ [AUTOBAN] Ошибка автобана {real_sid}: {ban_err}\n{traceback.format_exc()}", discord=False)
             except Exception as e:
                 _log(f"❌ [AUTOBAN] Ошибка в обработке yooma бана {real_sid}: {e}\n{traceback.format_exc()}", discord=False)
-
-    # ── CS2Red баны ──
-    if cs2red_data.get("found"):
-        for b in cs2red_data["bans"]:
-            if b["status"] != "active":
-                continue
-            bid = b["id"]
-            if bid in _ban_notify_cache[steamid]["cs2red"]:
-                continue
-            _ban_notify_cache[steamid]["cs2red"].add(bid)
-            new_found = True
-
-            embed = discord.Embed(
-                title="🔴 CS2Red.ru — АКТИВНЫЙ БАН",
-                color=0xe74c3c,
-                timestamp=datetime.now(timezone.utc)
-            )
-            embed.add_field(name="👤 Ник",       value=f"**{nickname}**",            inline=True)
-            embed.add_field(name="🆔 SteamID",   value=f"`{steamid}`",               inline=True)
-            embed.add_field(name="📋 Причина",   value=b["reason"],                  inline=True)
-            embed.add_field(name="📅 Выдан",     value=b["created"],                 inline=True)
-            embed.add_field(name="⏳ На сколько", value=b["duration"],               inline=True)
-            embed.add_field(name="🔗 Профиль",   value=f"[Steam]({steam_url})  •  [Fear](https://fearproject.ru/profile/{steamid})",      inline=True)
-            try:
-                await asyncio.wait_for(channel.send(embed=embed), timeout=5.0)
-            except Exception as e:
-                _log(f"⚠️ Не удалось отправить бан-уведомление (cs2red): {e}")
 
     return new_found
 
@@ -8024,6 +7918,7 @@ async def _sync_staff_roles(staff_db: dict):
                         _log(f"🎭 [ROLES] {member.name} ({sid}): роли стаффа сняты (группа {group})")
             except Exception as e:
                 pass
+            await asyncio.sleep(1.0)
 
 async def _sync_discord_data(sync_all: bool = False) -> dict:
     """Обновляет Discord данные для всего стаффа или для ВООБЩЕ ВСЕХ админов."""
