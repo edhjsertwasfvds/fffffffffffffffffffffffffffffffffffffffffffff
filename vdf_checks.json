@@ -1,0 +1,1406 @@
+{
+  "counter": 16,
+  "checks": {
+    "1": {
+      "results": [
+        {
+          "steamid": "76561198751025670",
+          "nickname": "entity.method",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": "MODER"
+        },
+        {
+          "steamid": "76561198708405728",
+          "nickname": "jg998812",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198781486699",
+          "nickname": "moloko",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198786399418",
+          "nickname": "damalakosteam",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705132746",
+          "nickname": "jhi76887",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199809840722",
+          "nickname": "FDM | RMツPON4IK",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705610931",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198699944686",
+          "nickname": "df23141",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198700314900",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198695260532",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198686631179",
+          "nickname": "bntsbebesitha",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config.vdf",
+      "timestamp": "2026-06-17T17:59:36.094326+00:00"
+    },
+    "2": {
+      "results": [
+        {
+          "steamid": "76561198751025670",
+          "nickname": "entity.method",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": "MODER"
+        },
+        {
+          "steamid": "76561198708405728",
+          "nickname": "jg998812",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198781486699",
+          "nickname": "moloko",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198786399418",
+          "nickname": "damalakosteam",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705132746",
+          "nickname": "jhi76887",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199809840722",
+          "nickname": "FDM | RMツPON4IK",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705610931",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198699944686",
+          "nickname": "df23141",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198700314900",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198695260532",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198686631179",
+          "nickname": "bntsbebesitha",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config.vdf",
+      "timestamp": "2026-06-17T18:32:34.095194+00:00"
+    },
+    "3": {
+      "results": [
+        {
+          "steamid": "76561198737892131",
+          "nickname": "gripchik_02",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "хранение запрещённого ПО",
+          "fear_unban": "20.07.2026 17:02",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 331782,
+                "name": "gripchik_02",
+                "steamid": "76561198737892131",
+                "reason": "Haron Anti-Cheat ",
+                "admin_name": "Console",
+                "created": "31.05.2026 06:13",
+                "expires": "29.08.2026 06:13",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1780197234,
+                "expires_ts": 1787973234,
+                "profile_url": "https://yooma.su/ru/profile/76561198737892131"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198725805270",
+          "nickname": "dildobek",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198701213980",
+          "nickname": "gripchiksteam",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок отказался от проверки",
+          "fear_unban": "07.08.2026 13:47",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198699896703",
+          "nickname": "gripchik04",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Обход блокировки",
+          "fear_unban": "05.02.2027 07:03",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 332834,
+                "name": "gripchik04",
+                "steamid": "76561198699896703",
+                "reason": "Haron Anti-Cheat ",
+                "admin_name": "Console",
+                "created": "02.06.2026 07:57",
+                "expires": "31.08.2026 07:57",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1780376268,
+                "expires_ts": 1788152268,
+                "profile_url": "https://yooma.su/ru/profile/76561198699896703"
+              }
+            ]
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_16.vdf",
+      "timestamp": "2026-06-17T18:40:55.051242+00:00"
+    },
+    "4": {
+      "results": [
+        {
+          "steamid": "76561199768742551",
+          "nickname": "Dev0ld/",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 235,
+          "game_bans": 1,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 215297,
+                "name": "Donk666",
+                "steamid": "76561199768742551",
+                "reason": "Отказ от проверки",
+                "admin_name": "с1mon",
+                "created": "01.10.2025 16:50",
+                "expires": "30.12.2025 16:50",
+                "duration": "90 дн.",
+                "status": "unbanned",
+                "created_ts": 1759326600,
+                "expires_ts": 1767102600,
+                "profile_url": "https://yooma.su/ru/profile/76561199768742551"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198785299489",
+          "nickname": "crazyhands/",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "До смены ОС",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198687334513",
+          "nickname": "БЕЛОСНЕЖКА",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок отказался от проверки",
+          "fear_unban": "15.08.2026 22:05",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config.vdf",
+      "timestamp": "2026-06-17T19:15:05.871847+00:00"
+    },
+    "5": {
+      "results": [
+        {
+          "steamid": "76561198876211845",
+          "nickname": "asdfgerytygdf",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок использовал читы",
+          "fear_unban": "15.08.2026 21:59",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199103486824",
+          "nickname": "NO EMOTIONS",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199802816351",
+          "nickname": "DeadSpace",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198893329257",
+          "nickname": "я хочу XANAX",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199832042034",
+          "nickname": "vasyavasay25",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_1.vdf",
+      "timestamp": "2026-06-17T20:29:26.930189+00:00"
+    },
+    "6": {
+      "results": [
+        {
+          "steamid": "76561198706989868",
+          "nickname": "Толя",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 336148,
+                "name": "Толя",
+                "steamid": "76561198706989868",
+                "reason": "Обход блокировки",
+                "admin_name": "minilyyy",
+                "created": "08.06.2026 16:46",
+                "expires": "06.09.2026 16:46",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1780926414,
+                "expires_ts": 1788702414,
+                "profile_url": "https://yooma.su/ru/profile/76561198706989868"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199642806146",
+          "nickname": "garry",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 335862,
+                "name": "jessie",
+                "steamid": "76561199642806146",
+                "reason": "Отказ от проверки",
+                "admin_name": "test(LS)",
+                "created": "07.06.2026 23:03",
+                "expires": "05.09.2026 23:03",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1780862607,
+                "expires_ts": 1788638607,
+                "profile_url": "https://yooma.su/ru/profile/76561199642806146"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199499910959",
+          "nickname": "aura",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": true,
+          "vac_days": 355,
+          "game_bans": 1,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_23.vdf",
+      "timestamp": "2026-06-18T07:40:16.993702+00:00"
+    },
+    "7": {
+      "results": [
+        {
+          "steamid": "76561198770867694",
+          "nickname": "S1neak_240km/h-peek",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 313406,
+                "name": "$GroNyksSs#dozarust",
+                "steamid": "76561198770867694",
+                "reason": "Отказ от проверки",
+                "admin_name": "Scott",
+                "created": "25.04.2026 00:29",
+                "expires": "24.07.2026 00:29",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1777066186,
+                "expires_ts": 1784842186,
+                "profile_url": "https://yooma.su/ru/profile/76561198770867694"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198749007724",
+          "nickname": "Gron1ksss",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок отказался от проверки",
+          "fear_unban": "27.06.2026 16:17",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 313408,
+                "name": "буся",
+                "steamid": "76561198749007724",
+                "reason": "Отказ от проверки",
+                "admin_name": "чума болотная",
+                "created": "25.04.2026 00:42",
+                "expires": "24.07.2026 00:42",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1777066941,
+                "expires_ts": 1784842941,
+                "profile_url": "https://yooma.su/ru/profile/76561198749007724"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198749224076",
+          "nickname": "pefagorik52",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config.vdf",
+      "timestamp": "2026-06-18T10:22:15.162008+00:00"
+    },
+    "8": {
+      "results": [
+        {
+          "steamid": "76561198751025670",
+          "nickname": "entity.method",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": "MODER"
+        },
+        {
+          "steamid": "76561198708405728",
+          "nickname": "jg998812",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198781486699",
+          "nickname": "moloko",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198786399418",
+          "nickname": "damalakosteam",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705132746",
+          "nickname": "jhi76887",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199809840722",
+          "nickname": "FDM | RMツPON4IK",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198705610931",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198699944686",
+          "nickname": "df23141",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198700314900",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198695260532",
+          "nickname": "qweqwe9871231",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198686631179",
+          "nickname": "bntsbebesitha",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199077499521",
+          "nickname": "ᵉʷᶻ in",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 1937,
+          "game_bans": 1,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_20.vdf",
+      "timestamp": "2026-06-18T18:09:56.036684+00:00"
+    },
+    "9": {
+      "results": [
+        {
+          "steamid": "76561198690628317",
+          "nickname": "shadowrunnerfury3000",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_25.vdf",
+      "timestamp": "2026-06-18T18:57:54.361121+00:00"
+    },
+    "10": {
+      "results": [
+        {
+          "steamid": "76561198686510655",
+          "nickname": "Шурик",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config.vdf",
+      "timestamp": "2026-06-18T19:51:41.183559+00:00"
+    },
+    "11": {
+      "results": [
+        {
+          "steamid": "76561199106029277",
+          "nickname": "U will lose",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок отказался от проверки",
+          "fear_unban": "18.08.2026 03:09",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198980117465",
+          "nickname": "s 1 v eblo",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199074471750",
+          "nickname": "Xitie SYNDICATE",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": true,
+          "vac_days": 2054,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_21.vdf",
+      "timestamp": "2026-06-19T00:44:13.322026+00:00"
+    },
+    "12": {
+      "results": [
+        {
+          "steamid": "76561199106029277",
+          "nickname": "U will lose",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок отказался от проверки",
+          "fear_unban": "18.08.2026 03:09",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198980117465",
+          "nickname": "s 1 v eblo",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199074471750",
+          "nickname": "Xitie SYNDICATE",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": true,
+          "vac_days": 2054,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_21.vdf",
+      "timestamp": "2026-06-19T01:03:02.390298+00:00"
+    },
+    "13": {
+      "results": [
+        {
+          "steamid": "76561198715907261",
+          "nickname": "𝕿𝖀𝕽𝕴𝕾𝕿 𝕬",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": "ADMIN"
+        }
+      ],
+      "filename": "config_22.vdf",
+      "timestamp": "2026-06-19T03:13:37.952624+00:00"
+    },
+    "14": {
+      "results": [
+        {
+          "steamid": "76561198858089706",
+          "nickname": "кирочка мефедронова",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 356,
+          "game_bans": 1,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199202323131",
+          "nickname": "sadness",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": true,
+          "vac_days": 1221,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561199483864212",
+          "nickname": "/",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_23.vdf",
+      "timestamp": "2026-06-19T03:33:03.726236+00:00"
+    },
+    "15": {
+      "results": [
+        {
+          "steamid": "76561199700594819",
+          "nickname": "wers1x мяу",
+          "on_fear": true,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 296970,
+                "name": "undefined",
+                "steamid": "76561199700594819",
+                "reason": "Haron Anti-Cheat",
+                "admin_name": "Console",
+                "created": "18.03.2026 16:50",
+                "expires": "16.06.2026 16:50",
+                "duration": "90 дн.",
+                "status": "unbanned",
+                "created_ts": 1773841820,
+                "expires_ts": 1781617820,
+                "profile_url": "https://yooma.su/ru/profile/76561199700594819"
+              }
+            ]
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_1.vdf",
+      "timestamp": "2026-06-19T12:30:00.193613+00:00"
+    },
+    "16": {
+      "results": [
+        {
+          "steamid": "76561198766451811",
+          "nickname": "𝔀𝓲𝔃𝓭𝓲",
+          "on_fear": true,
+          "fear_banned": true,
+          "fear_reason": "Игрок не указал социальную сеть",
+          "fear_unban": "18.08.2026 14:55",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": true,
+            "punishments": [
+              {
+                "id": 327794,
+                "name": "#yooma.su | 𝔀𝓲𝔃𝓭𝓲",
+                "steamid": "76561198766451811",
+                "reason": "Haron Anti-Cheat ",
+                "admin_name": "Console",
+                "created": "23.05.2026 16:35",
+                "expires": "21.08.2026 16:35",
+                "duration": "90 дн.",
+                "status": "active",
+                "created_ts": 1779543352,
+                "expires_ts": 1787319352,
+                "profile_url": "https://yooma.su/ru/profile/76561198766451811"
+              },
+              {
+                "id": 304892,
+                "name": "",
+                "steamid": "76561198766451811",
+                "reason": "Обход блокировки",
+                "admin_name": "TheMightyEngineer",
+                "created": "03.04.2026 13:56",
+                "expires": "02.07.2026 13:56",
+                "duration": "90 дн.",
+                "status": "unbanned",
+                "created_ts": 1775213790,
+                "expires_ts": 1782989790,
+                "profile_url": "https://yooma.su/ru/profile/76561198766451811"
+              }
+            ]
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198753869746",
+          "nickname": "zambuk",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": false,
+          "vac_days": 0,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        },
+        {
+          "steamid": "76561198198440617",
+          "nickname": "Belligosh",
+          "on_fear": false,
+          "fear_banned": false,
+          "fear_reason": "",
+          "fear_unban": "",
+          "vac_banned": true,
+          "vac_days": 2992,
+          "game_bans": 0,
+          "community_ban": false,
+          "yooma_data": {
+            "found": false,
+            "punishments": []
+          },
+          "admin_group": ""
+        }
+      ],
+      "filename": "config_2.vdf",
+      "timestamp": "2026-06-19T13:07:28.898271+00:00"
+    }
+  }
+}
