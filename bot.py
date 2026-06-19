@@ -8950,6 +8950,8 @@ def _build_vdf_embeds(results: list[dict], filename: str) -> list[discord.Embed]
     # View с кнопкой yooma
     return embeds
 
+_processed_vdf_messages: set[int] = set()
+
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot:
@@ -8990,6 +8992,12 @@ async def on_message(message: discord.Message):
             return
         except Exception as ex:
             _log(f"⚠️ reference fetch error: {ex}")
+
+    if message.id in _processed_vdf_messages:
+        return
+    _processed_vdf_messages.add(message.id)
+    if len(_processed_vdf_messages) > 500:
+        _processed_vdf_messages.clear()
 
     for attachment in attachments:
         if not attachment.filename.lower().endswith(".vdf"):
