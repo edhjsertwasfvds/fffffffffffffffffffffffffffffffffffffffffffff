@@ -7,6 +7,12 @@ import time
 from dotenv import load_dotenv
 import asyncio
 import aiohttp
+try:
+    from curl_cffi.requests import AsyncSession as _CurlSession
+    _HAS_CURL_CFFI = True
+except ImportError:
+    _HAS_CURL_CFFI = False
+    _CurlSession = None
 import json
 import re
 from datetime import datetime, timezone, timedelta
@@ -78,6 +84,58 @@ BAN_NOTIFY_CHANNEL_ID  = _env_int("BAN_NOTIFY_CHANNEL_ID", 1503035873816744069) 
 STAFF_PUNISH_LOG_CHANNEL_ID = _env_int("STAFF_PUNISH_LOG_CHANNEL_ID", 1510955528787071077)
 ALERT_ROLE_ID          = _env_int("ALERT_ROLE_ID", 1463269872350920704)
 API_BASE               = os.getenv("API_BASE", "https://api.fearproject.ru").strip() or "https://api.fearproject.ru"
+
+# ── curl_cffi сессия для обхода DDoS-Guard ──────────────────────────────────
+_curl_session: _CurlSession | None = None
+
+def _get_curl_session() -> _CurlSession | None:
+    global _curl_session
+    if not _HAS_CURL_CFFI:
+        return None
+    if _curl_session is None:
+        _curl_session = _CurlSession(impersonate="chrome")
+    return _curl_session
+
+async def _fear_request(method: str, url: str, headers: dict = None, params: dict = None,
+                        json_data=None, timeout: int = 20) -> dict | list | None:
+    """Универсальный запрос к fearproject API через curl_cffi (обход DDoS-Guard)."""
+    session = _get_curl_session()
+    if not session:
+        _log("⚠️ curl_cffi недоступен, fallback на aiohttp")
+        return None
+    try:
+        resp = await session.request(
+            method, url,
+            headers=headers or {},
+            params=params or {},
+            json=json_data,
+            timeout=timeout,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        _log(f"⚠️ [curl_cffi] {method} {url} -> HTTP {resp.status_code}: {resp.text[:200]}", discord=False)
+        return None
+    except Exception as e:
+        _log(f"❌ [curl_cffi] {method} {url}: {e}", discord=False)
+        return None
+
+async def _fear_request_raw(method: str, url: str, headers: dict = None, params: dict = None,
+                            json_data=None, timeout: int = 20):
+    """Запрос к fearproject API через curl_cffi, возвращает (status_code, text)."""
+    session = _get_curl_session()
+    if not session:
+        return (0, "curl_cffi unavailable")
+    try:
+        resp = await session.request(
+            method, url,
+            headers=headers or {},
+            params=params or {},
+            json=json_data,
+            timeout=timeout,
+        )
+        return (resp.status_code, resp.text)
+    except Exception as e:
+        return (0, str(e))
 
 # Роли, которым запрещен Yooma (но разрешен /mystats)
 YOOMA_RESTRICTED_ROLES = _env_int_list("YOOMA_RESTRICTED_ROLES", [1507939408223928465, 1507939502147113000])
@@ -720,12 +778,9 @@ def _safe_url(url: str) -> str:
 
 async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = None, headers: dict = None):
     safe = _safe_url(url)
-    # Увеличиваем таймаут для медленных сайтов типа yooma.su
-    timeout = aiohttp.ClientTimeout(total=20)
     last_status = None
     last_err = None
 
-    # Дефолтные заголовки для обхода базовых проверок
     actual_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
@@ -733,6 +788,27 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
     }
     if headers:
         actual_headers.update(headers)
+
+    # ── DDoS-Guard обход: fearproject.ru через curl_cffi ──────────────────
+    if "fearproject.ru" in url:
+        for attempt in range(3):
+            data = await _fear_request("GET", url, headers=actual_headers, params=params, timeout=20)
+            if data is not None:
+                return data
+            last_status = -1
+            last_err = "curl_cffi failed"
+            if attempt < 2:
+                await asyncio.sleep(1.0 * (attempt + 1))
+        now = datetime.now(timezone.utc).timestamp()
+        throttle_key = f"{safe}:fear_err"
+        last = _http_warn_last.get(throttle_key, 0)
+        if now - last >= 300:
+            _http_warn_last[throttle_key] = now
+            _log(f"❌ Fear API Error: {safe} (curl_cffi)")
+        return None
+
+    # ── Обычный aiohttp для остальных сайтов ──────────────────────────────
+    timeout = aiohttp.ClientTimeout(total=20)
 
     for attempt in range(3):
         try:
@@ -742,7 +818,6 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
                     try:
                         return await r.json(content_type=None)
                     except Exception as je:
-                        # Если не JSON, пробуем текст
                         text = await r.text()
                         if attempt == 2:
                             _log(f"⚠️ [HTTP] Ошибка парсинга JSON с {safe}: {je}. Ответ: {text[:100]}...", discord=False)
@@ -759,7 +834,6 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
                     await asyncio.sleep(min(max(wait_s, 1.0), 30.0))
                     continue
                 
-                # Если 404 или 403 — не повторяем, скорее всего путь неверный или бан
                 if r.status in (403, 404):
                     break
 
@@ -776,19 +850,15 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
             break
 
     now = datetime.now(timezone.utc).timestamp()
-    # Для троттлинга (ограничения спама) используем базовый URL без параметров
-    # Чтобы не спамить на каждого отдельного игрока (разные steamid в URL)
     throttle_key = f"{safe}:{last_status or 'err'}"
     last = _http_warn_last.get(throttle_key, 0)
     
-    if now - last >= 300: # Логируем одну и ту же ошибку для домена не чаще раз в 5 минут
+    if now - last >= 300:
         _http_warn_last[throttle_key] = now
         if last_status is not None and last_status != 200:
             if last_status == 404:
-                # 404 обычно означает отсутствие данных, пишем только в консоль
                 _log(f"ℹ️ HTTP 404: {url}", discord=False)
             elif last_status == 403:
-                # 403 часто бывает из-за защиты сайта, пишем один раз
                 _log(f"❌ HTTP 403 Forbidden: {safe} (Проверь доступ к сайту)")
             else:
                 _log(f"❌ HTTP Error {last_status}: {safe}")
@@ -3761,27 +3831,20 @@ async def _fetch_all_mutes_global(session: aiohttp.ClientSession) -> list:
     while page <= 500:
         params = {"type": 2, "page": page, "limit": 20}
         retries = 0
+        data = None
         while retries < 3:
-            try:
-                timeout = aiohttp.ClientTimeout(total=15)
-                _log(f"🔄 [ЧСО] API: page={page}", discord=False)
-                async with session.get(f"{API_BASE}/admin/punishments/my", params=params, headers=headers, timeout=timeout) as r:
-                    if r.status == 429:
-                        await asyncio.sleep(2 ** retries)
-                        retries += 1
-                        continue
-                    if r.status != 200:
-                        _log(f"⚠️ [ЧСО] API вернул {r.status}, завершаю.", discord=False)
-                        return all_mutes
-                    data = await r.json(content_type=None)
-                    items = data if isinstance(data, list) else data.get("punishments", data.get("data", []))
-                    break
-            except (asyncio.TimeoutError, Exception) as e:
-                retries += 1
-                await asyncio.sleep(1.0)
+            _log(f"🔄 [ЧСО] API: page={page}", discord=False)
+            data = await _fear_request("GET", f"{API_BASE}/admin/punishments/my",
+                                       headers=headers, params=params, timeout=15)
+            if data is not None:
+                break
+            retries += 1
+            await asyncio.sleep(2 ** (retries - 1))
         else:
             _log(f"⚠️ [ЧСО] Стр.{page}: 3 неудачи, завершаю.", discord=False)
             return all_mutes
+
+        items = data if isinstance(data, list) else data.get("punishments", data.get("data", []))
 
         if not items:
             _log(f"ℹ️ [ЧСО] Стр.{page}: пусто, завершаю.", discord=False)
@@ -5786,68 +5849,52 @@ def _fear_api_headers() -> dict:
 
 async def _fear_api_get(session: aiohttp.ClientSession, path: str, params: dict = None) -> dict | list | None:
     url = f"{API_BASE}{path}"
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.get(url, params=params, headers=_fear_api_headers(), timeout=timeout) as r:
-            if r.status == 200:
-                return await r.json(content_type=None)
-            body = await r.text()
-            _log(f"⚠️ [FEAR API GET] {path} -> HTTP {r.status}: {body[:200]}", discord=False)
-            return None
-    except Exception as e:
-        _log(f"❌ [FEAR API GET] {path}: {e}", discord=False)
-        return None
+    data = await _fear_request("GET", url, headers=_fear_api_headers(), params=params)
+    if data is not None:
+        return data
+    return None
 
 
 async def _fear_api_post(session: aiohttp.ClientSession, path: str, payload: dict = None) -> dict | None:
     url = f"{API_BASE}{path}"
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.post(url, json=payload, headers=_fear_api_headers(), timeout=timeout) as r:
-            body = await r.text()
-            if r.status in (200, 201):
-                try:
-                    return await r.json(content_type=None)
-                except Exception:
-                    return {"ok": True, "raw": body[:500]}
-            _log(f"⚠️ [FEAR API POST] {path} -> HTTP {r.status}: {body[:200]}", discord=False)
-            return None
-    except Exception as e:
-        _log(f"❌ [FEAR API POST] {path}: {e}", discord=False)
-        return None
+    status, body = await _fear_request_raw("POST", url, headers=_fear_api_headers(), json_data=payload)
+    if status in (200, 201):
+        try:
+            return json.loads(body)
+        except Exception:
+            return {"ok": True, "raw": body[:500]}
+    if status > 0:
+        _log(f"⚠️ [FEAR API POST] {path} -> HTTP {status}: {body[:200]}", discord=False)
+    else:
+        _log(f"❌ [FEAR API POST] {path}: {body}", discord=False)
+    return None
 
 
 async def _fear_api_put(session: aiohttp.ClientSession, path: str, payload: dict = None) -> dict | None:
     url = f"{API_BASE}{path}"
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.put(url, json=payload, headers=_fear_api_headers(), timeout=timeout) as r:
-            body = await r.text()
-            if r.status in (200, 201, 204):
-                try:
-                    return await r.json(content_type=None)
-                except Exception:
-                    return {"ok": True, "raw": body[:500]}
-            _log(f"⚠️ [FEAR API PUT] {path} -> HTTP {r.status}: {body[:200]}", discord=False)
-            return None
-    except Exception as e:
-        _log(f"❌ [FEAR API PUT] {path}: {e}", discord=False)
-        return None
+    status, body = await _fear_request_raw("PUT", url, headers=_fear_api_headers(), json_data=payload)
+    if status in (200, 201, 204):
+        try:
+            return json.loads(body)
+        except Exception:
+            return {"ok": True, "raw": body[:500]}
+    if status > 0:
+        _log(f"⚠️ [FEAR API PUT] {path} -> HTTP {status}: {body[:200]}", discord=False)
+    else:
+        _log(f"❌ [FEAR API PUT] {path}: {body}", discord=False)
+    return None
 
 
 async def _fear_api_delete(session: aiohttp.ClientSession, path: str) -> bool:
     url = f"{API_BASE}{path}"
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.delete(url, headers=_fear_api_headers(), timeout=timeout) as r:
-            if r.status in (200, 204):
-                return True
-            body = await r.text()
-            _log(f"⚠️ [FEAR API DELETE] {path} -> HTTP {r.status}: {body[:200]}", discord=False)
-            return False
-    except Exception as e:
-        _log(f"❌ [FEAR API DELETE] {path}: {e}", discord=False)
-        return False
+    status, body = await _fear_request_raw("DELETE", url, headers=_fear_api_headers())
+    if status in (200, 204):
+        return True
+    if status > 0:
+        _log(f"⚠️ [FEAR API DELETE] {path} -> HTTP {status}: {body[:200]}", discord=False)
+    else:
+        _log(f"❌ [FEAR API DELETE] {path}: {body}", discord=False)
+    return False
 
 
 # ── /addadmin ────────────────────────────────────────────────────────────────
@@ -6465,22 +6512,22 @@ async def _fetch_reports() -> list | None:
     """Получает список последних репортов с fearproject API."""
     if not FEAR_COOKIE:
         return None
-    async with aiohttp.ClientSession() as session:
+    url = f"{API_BASE}/reports/recent"
+    headers = await _fear_headers()
+    status, body = await _fear_request_raw("GET", url, headers=headers, timeout=15)
+    if status in (401, 403):
+        return "token_expired"
+    if status == 200:
         try:
-            async with session.get(
-                f"{API_BASE}/reports/recent",
-                headers=await _fear_headers(),
-                timeout=aiohttp.ClientTimeout(total=15)
-            ) as r:
-                if r.status in (401, 403):
-                    return "token_expired"
-                if r.status == 200:
-                    return await r.json(content_type=None)
-                _log(f"⚠️ /reports/recent вернул {r.status}")
-                return None
-        except Exception as e:
-            _log(f"❌ _fetch_reports: {type(e).__name__}: {e}")
+            return json.loads(body)
+        except Exception:
+            _log(f"⚠️ _fetch_reports: не JSON: {body[:200]}")
             return None
+    if status > 0:
+        _log(f"⚠️ /reports/recent вернул {status}")
+    else:
+        _log(f"❌ _fetch_reports: {body}")
+    return None
 
 
 async def _get_player_kd(steamid: str) -> float | None:
@@ -6596,31 +6643,21 @@ async def _close_reports(report_ids: list[int], result_text: str) -> bool:
     """Закрывает репорты через Fear API методом PATCH."""
     if not FEAR_COOKIE or not report_ids:
         return False
-    async with aiohttp.ClientSession() as session:
-        try:
-            headers = await _fear_headers()
-            all_ok = True
-            for rid in report_ids:
-                payload = {"result": result_text}
-                async with session.patch(
-                    f"{API_BASE}/reports/{rid}/close",
-                    json=payload,
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as r:
-                    if r.status == 404:
-                        _log(f"ℹ️ Тикет #{rid} уже закрыт, пропускаем")
-                        continue
-                    if r.status in (200, 201, 204):
-                        _log(f"✅ Тикет #{rid} закрыт: `{result_text[:50]}`")
-                    else:
-                        _log(f"⚠️ [AUTO-CLOSE] Ошибка закрытия тикета #{rid}: статус {r.status}")
-                        all_ok = False
-                    await asyncio.sleep(0.2)
-            return all_ok
-        except Exception as e:
-            _log(f"❌ [AUTO-CLOSE] Критическая ошибка при закрытии тикетов: {e}")
-            return False
+    headers = await _fear_headers()
+    all_ok = True
+    for rid in report_ids:
+        payload = {"result": result_text}
+        url = f"{API_BASE}/reports/{rid}/close"
+        status, body = await _fear_request_raw("PATCH", url, headers=headers, json_data=payload, timeout=10)
+        if status == 404:
+            _log(f"ℹ️ Тикет #{rid} уже закрыт, пропускаем")
+        elif status in (200, 201, 204):
+            _log(f"✅ Тикет #{rid} закрыт: `{result_text[:50]}`")
+        else:
+            _log(f"⚠️ [AUTO-CLOSE] Ошибка закрытия тикета #{rid}: статус {status}")
+            all_ok = False
+        await asyncio.sleep(0.2)
+    return all_ok
 
 
 def _build_autoclose_embed() -> discord.Embed:
@@ -7126,19 +7163,15 @@ async def _fear_autoban(session: aiohttp.ClientSession, steamid: str, reason: st
         "Origin": "https://fearproject.ru",
         "Referer": "https://fearproject.ru/",
     }
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.post(url, json=payload, headers=headers, timeout=timeout) as r:
-            body = await r.text()
-            if r.status in (200, 201):
-                _log(f"✅ [AUTOBAN] Забанен {steamid} на {_format_duration(duration_sec)}. Причина: {reason}")
-                return True
-            else:
-                _log(f"⚠️ [AUTOBAN] Ошибка бана {steamid}: HTTP {r.status} — {body[:300]}")
-                return False
-    except Exception as e:
-        _log(f"❌ [AUTOBAN] Исключение при бане {steamid}: {e}\n{traceback.format_exc()}")
-        return False
+    status, body = await _fear_request_raw("POST", url, headers=headers, json_data=payload, timeout=15)
+    if status in (200, 201):
+        _log(f"✅ [AUTOBAN] Забанен {steamid} на {_format_duration(duration_sec)}. Причина: {reason}")
+        return True
+    elif status > 0:
+        _log(f"⚠️ [AUTOBAN] Ошибка бана {steamid}: HTTP {status} — {body[:300]}")
+    else:
+        _log(f"❌ [AUTOBAN] Исключение при бане {steamid}: {body}")
+    return False
 
 async def _fear_mute(session: aiohttp.ClientSession, steamid: str, reason: str, duration_sec: int, punish_type: int = 1) -> bool:
     """Выдаёт мут на Fear Project через API. punish_type: 1=войс, 2=чат."""
@@ -7161,20 +7194,16 @@ async def _fear_mute(session: aiohttp.ClientSession, steamid: str, reason: str, 
         "Origin": "https://fearproject.ru",
         "Referer": "https://fearproject.ru/",
     }
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.post(url, json=payload, headers=headers, timeout=timeout) as r:
-            body = await r.text()
-            if r.status in (200, 201):
-                mute_type = "войс" if punish_type == 1 else "чат"
-                _log(f"✅ [MUTE] Замьючен {steamid} ({mute_type}) на {_format_duration(duration_sec)}. Причина: {reason}")
-                return True
-            else:
-                _log(f"⚠️ [MUTE] Ошибка мута {steamid}: HTTP {r.status} — {body[:300]}")
-                return False
-    except Exception as e:
-        _log(f"❌ [MUTE] Исключение при муте {steamid}: {e}")
-        return False
+    status, body = await _fear_request_raw("POST", url, headers=headers, json_data=payload, timeout=15)
+    if status in (200, 201):
+        mute_type = "войс" if punish_type == 1 else "чат"
+        _log(f"✅ [MUTE] Замьючен {steamid} ({mute_type}) на {_format_duration(duration_sec)}. Причина: {reason}")
+        return True
+    elif status > 0:
+        _log(f"⚠️ [MUTE] Ошибка мута {steamid}: HTTP {status} — {body[:300]}")
+    else:
+        _log(f"❌ [MUTE] Исключение при муте {steamid}: {body}")
+    return False
 
 async def _fear_delete_punishment(session: aiohttp.ClientSession, punishment_id: int) -> bool:
     """Удаляет наказание (бан/мут) на Fear Project через API."""
@@ -7191,19 +7220,15 @@ async def _fear_delete_punishment(session: aiohttp.ClientSession, punishment_id:
         "Origin": "https://fearproject.ru",
         "Referer": "https://fearproject.ru/",
     }
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.delete(url, headers=headers, timeout=timeout) as r:
-            body = await r.text()
-            if r.status in (200, 204):
-                _log(f"✅ [UNBAN] Наказание #{punishment_id} снято")
-                return True
-            else:
-                _log(f"⚠️ [UNBAN] Ошибка снятия #{punishment_id}: HTTP {r.status} — {body[:300]}")
-                return False
-    except Exception as e:
-        _log(f"❌ [UNBAN] Исключение при снятии #{punishment_id}: {e}")
-        return False
+    status, body = await _fear_request_raw("DELETE", url, headers=headers, timeout=15)
+    if status in (200, 204):
+        _log(f"✅ [UNBAN] Наказание #{punishment_id} снято")
+        return True
+    elif status > 0:
+        _log(f"⚠️ [UNBAN] Ошибка снятия #{punishment_id}: HTTP {status} — {body[:300]}")
+    else:
+        _log(f"❌ [UNBAN] Исключение при снятии #{punishment_id}: {body}")
+    return False
 
 async def _fear_get_my_punishments(session: aiohttp.ClientSession, punishment_type: int) -> list:
     """Получает список своих наказаний. type: 1=баны, 2=муты."""
@@ -7219,15 +7244,10 @@ async def _fear_get_my_punishments(session: aiohttp.ClientSession, punishment_ty
         "Origin": "https://fearproject.ru",
         "Referer": "https://fearproject.ru/",
     }
-    try:
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with session.get(url, params=params, headers=headers, timeout=timeout) as r:
-            if r.status == 200:
-                data = await r.json(content_type=None)
-                return data if isinstance(data, list) else data.get("punishments", data.get("data", []))
-            return []
-    except Exception:
-        return []
+    data = await _fear_request("GET", url, headers=headers, params=params, timeout=15)
+    if data is not None:
+        return data if isinstance(data, list) else data.get("punishments", data.get("data", []))
+    return []
 
 def _is_cheat_reason(reason: str) -> bool:
     """Проверяет, содержит ли причина бана слово из списка читов."""
@@ -8611,29 +8631,26 @@ async def _fetch_admins_list() -> list[dict] | None:
     """Получает список всех админов через fearproject API с cookie."""
     if not FEAR_COOKIE:
         return None
-    async with aiohttp.ClientSession() as session:
+    headers = {
+        "Cookie": FEAR_COOKIE,
+        "Referer": "https://fearproject.ru/",
+        "Origin": "https://fearproject.ru",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+    url = f"{API_BASE}/admins/"
+    status, body = await _fear_request_raw("GET", url, headers=headers, timeout=20)
+    if status == 200:
         try:
-            headers = {
-                "Cookie": FEAR_COOKIE,
-                "Referer": "https://fearproject.ru/",
-                "Origin": "https://fearproject.ru",
-                "Accept": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "sec-fetch-site": "same-site",
-                "sec-fetch-mode": "cors",
-                "sec-fetch-dest": "empty"
-            }
-            async with session.get(f"{API_BASE}/admins/", headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=20)) as r:
-                if r.status == 200:
-                    return await r.json(content_type=None)
-                else:
-                    body = await r.text()
-                    _log(f"⚠️ /admins/ вернул {r.status} — {body[:200]}")
-                    return None
-        except Exception as e:
-            _log(f"❌ _fetch_admins_list: {e}")
+            return json.loads(body)
+        except Exception:
+            _log(f"⚠️ /admins/ не JSON: {body[:200]}")
             return None
+    if status > 0:
+        _log(f"⚠️ /admins/ вернул {status} — {body[:200]}")
+    else:
+        _log(f"❌ _fetch_admins_list: {body}")
+    return None
 
 async def _refresh_admins_and_notify():
     """Обновляет кэш админов и уведомляет о тех у кого нет Discord."""
