@@ -720,8 +720,8 @@ def _safe_url(url: str) -> str:
 
 async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = None, headers: dict = None):
     safe = _safe_url(url)
-    # Увеличиваем таймаут до 25 секунд для медленных сайтов типа yooma.su
-    timeout = aiohttp.ClientTimeout(total=15)
+    # Увеличиваем таймаут для медленных сайтов типа yooma.su
+    timeout = aiohttp.ClientTimeout(total=20)
     last_status = None
     last_err = None
 
@@ -6470,7 +6470,7 @@ async def _fetch_reports() -> list | None:
             async with session.get(
                 f"{API_BASE}/reports/recent",
                 headers=await _fear_headers(),
-                timeout=aiohttp.ClientTimeout(total=5)
+                timeout=aiohttp.ClientTimeout(total=15)
             ) as r:
                 if r.status in (401, 403):
                     return "token_expired"
@@ -8064,8 +8064,8 @@ async def _sync_discord_data(sync_all: bool = False) -> dict:
                 if changed:
                     updated += 1
             
-            # Небольшая пауза между запросами внутри семафора
-            await asyncio.sleep(0.05)
+            # Небольшая пауза между запросами чтобы не нагружать API
+            await asyncio.sleep(0.2)
 
     async with aiohttp.ClientSession() as session:
         await asyncio.gather(*[_update_one(a) for a in to_sync])
@@ -8624,11 +8624,12 @@ async def _fetch_admins_list() -> list[dict] | None:
                 "sec-fetch-dest": "empty"
             }
             async with session.get(f"{API_BASE}/admins/", headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=15)) as r:
+                                   timeout=aiohttp.ClientTimeout(total=20)) as r:
                 if r.status == 200:
                     return await r.json(content_type=None)
                 else:
-                    _log(f"⚠️ /admins/ вернул {r.status}")
+                    body = await r.text()
+                    _log(f"⚠️ /admins/ вернул {r.status} — {body[:200]}")
                     return None
         except Exception as e:
             _log(f"❌ _fetch_admins_list: {e}")
