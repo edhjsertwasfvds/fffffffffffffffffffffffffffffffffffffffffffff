@@ -98,7 +98,7 @@ def _get_curl_session() -> _CurlSession | None:
 
 async def _fear_request(method: str, url: str, headers: dict = None, params: dict = None,
                         json_data=None, timeout: int = 20) -> dict | list | None:
-    """Универсальный запрос к fearproject API через curl_cffi (обход DDoS-Guard)."""
+    """Универсальный запрос к fearproject/yooma API через curl_cffi (обход DDoS-Guard)."""
     session = _get_curl_session()
     if not session:
         _log("⚠️ curl_cffi недоступен, fallback на aiohttp")
@@ -112,7 +112,15 @@ async def _fear_request(method: str, url: str, headers: dict = None, params: dic
             timeout=timeout,
         )
         if resp.status_code == 200:
-            return resp.json()
+            text = resp.text.strip()
+            if not text:
+                return None
+            try:
+                return json.loads(text)
+            except (json.JSONDecodeError, ValueError):
+                return None
+        if resp.status_code in (403, 404):
+            return None
         _log(f"⚠️ [curl_cffi] {method} {url} -> HTTP {resp.status_code}: {resp.text[:200]}", discord=False)
         return None
     except Exception as e:
@@ -121,7 +129,7 @@ async def _fear_request(method: str, url: str, headers: dict = None, params: dic
 
 async def _fear_request_raw(method: str, url: str, headers: dict = None, params: dict = None,
                             json_data=None, timeout: int = 20):
-    """Запрос к fearproject API через curl_cffi, возвращает (status_code, text)."""
+    """Запрос к fearproject/yooma API через curl_cffi, возвращает (status_code, text)."""
     session = _get_curl_session()
     if not session:
         return (0, "curl_cffi unavailable")
@@ -171,7 +179,9 @@ PUNISHMENTS_SCAN_STATE_FILE = Path(__file__).parent / "punishments_scan_state.js
 def _load_all_punishments() -> dict:
     if ALL_PUNISHMENTS_FILE.exists():
         try:
-            return json.loads(ALL_PUNISHMENTS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(ALL_PUNISHMENTS_FILE.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "bans" in data and "mutes" in data:
+                return data
         except Exception:
             pass
     return {"bans": {}, "mutes": {}}
@@ -789,22 +799,14 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, params: dict = N
     if headers:
         actual_headers.update(headers)
 
-    # ── DDoS-Guard обход: fearproject.ru / yooma.su через curl_cffi ───────
-    if "fearproject.ru" in url or "yooma.su" in url:
+    # ── DDoS-Guard обход: fearproject.ru / yooma.su / cs2red.ru через curl_cffi ───────
+    if "fearproject.ru" in url or "yooma.su" in url or "cs2red.ru" in url:
         for attempt in range(3):
             data = await _fear_request("GET", url, headers=actual_headers, params=params, timeout=20)
             if data is not None:
                 return data
-            last_status = -1
-            last_err = "curl_cffi failed"
             if attempt < 2:
                 await asyncio.sleep(1.0 * (attempt + 1))
-        now = datetime.now(timezone.utc).timestamp()
-        throttle_key = f"{safe}:fear_err"
-        last = _http_warn_last.get(throttle_key, 0)
-        if now - last >= 300:
-            _http_warn_last[throttle_key] = now
-            _log(f"❌ Fear API Error: {safe} (curl_cffi)")
         return None
 
     # ── Обычный aiohttp для остальных сайтов ──────────────────────────────
@@ -2164,21 +2166,24 @@ def _calc_stats(data: dict, date_from: datetime | None = None, date_to: datetime
     }
 
 async def _fetch_punishments(session: aiohttp.ClientSession, steam_id: str) -> dict | None:
-    """Пробует получить наказания через API fearproject. Приоритет на выданные (by-admin)."""
-    # 1. Сначала пробуем получить наказания, ВЫДАННЫЕ этим админом (by-admin)
+    """Пробует получить наказания через API fearproject."""
+    # 1. Пробуем поиск по наказаниям
     try:
-        url = f"{API_BASE}/fear/punishments/by-admin?admin_steamid={steam_id}"
-        data = await _fetch_json(session, url)
-        # Если в ответе есть список наказаний, возвращаем его
-        if data and (data.get("bans") or data.get("mutes")):
+        url = f"{API_BASE}/punishments/search"
+        params = {"steamid": steam_id, "limit": 50}
+        headers = _fear_api_headers()
+        data = await _fetch_json(session, url, params=params, headers=headers)
+        if data:
             return data
     except Exception:
         pass
 
-    # 2. Если ничего не найдено, пробуем bulk (наказания, полученные игроком)
+    # 2. Пробуем общий список с фильтром
     try:
-        url = f"{API_BASE}/fear/punishments/bulk?steamids={steam_id}"
-        data = await _fetch_json(session, url)
+        url = f"{API_BASE}/punishments"
+        params = {"steamid": steam_id, "limit": 50}
+        headers = _fear_api_headers()
+        data = await _fetch_json(session, url, params=params, headers=headers)
         if data:
             return data
     except Exception:
