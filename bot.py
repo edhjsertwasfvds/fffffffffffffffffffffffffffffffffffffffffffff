@@ -351,6 +351,14 @@ def _save_json_atomic(path: Path, data: object):
 def _save_suspicious_panel(channel_id: int, message_id: int):
     _save_json_atomic(SUSPICIOUS_PANEL_FILE, {"channel_id": channel_id, "message_id": message_id})
 
+def _load_suspicious_panel() -> dict:
+    if SUSPICIOUS_PANEL_FILE.exists():
+        try:
+            return json.loads(SUSPICIOUS_PANEL_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
 def _save_newbies_panel(channel_id: int, message_id: int):
     _save_json_atomic(NEWBIES_PANEL_FILE, {"channel_id": channel_id, "message_id": message_id})
 
