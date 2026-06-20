@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  vdf-checker:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - STEAM_API_KEY=9EA60BC3158081747D77604EB9819F19
+    volumes:
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped

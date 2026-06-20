@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Проверка аккаунтов — FearSupport</title>
+    <link rel="stylesheet" href="/static/style.css?v=6">
+</head>
+<body>
+    <!-- Фон -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- СТРАНИЦА ЗАГРУЗКИ -->
+    <div class="main-container" id="uploadPage">
+        <div class="card">
+            <div class="card-shine"></div>
+            <div class="card-content">
+                <h1>Проверка аккаунтов</h1>
+                <p class="subtitle">
+                    Чтобы проверить аккаунты на баны, в поле ниже выберите/перетащите/вставьте необходимый(е) вам файлы(ы), затем дождитесь их проверки, и ознакомьтесь с результатом.
+                </p>
+
+                <div class="drop-zone" id="dropZone">
+                    <input type="file" id="fileInput" accept=".vdf" multiple>
+                    <div class="upload-icon-wrap">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <p class="upload-text">Перетащите .vdf файлы или нажмите</p>
+                    <p class="upload-hint">Поддерживаются только .vdf файлы</p>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
+            </div>
+        </div>
+
+        <a href="/" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Вернуться на главную
+        </a>
+    </div>
+
+    <!-- ЛОАДЕР -->
+    <div class="main-container loader-wrap" id="loader" style="display:none;">
+        <div class="card">
+            <div class="card-shine"></div>
+            <div class="card-content loader-content">
+                <div class="loader-spinner"></div>
+                <div class="loader-stage">Читаем VDF файл...</div>
+
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="loader-progress" id="loaderProgress">0 / 0</div>
+
+                <div class="stages">
+                    <div class="stage waiting" id="stage-parse">
+                        <div class="stage-dot"></div>
+                        <span>Чтение VDF</span>
+                    </div>
+                    <div class="stage waiting" id="stage-steam">
+                        <div class="stage-dot"></div>
+                        <span>Steam API</span>
+                    </div>
+                    <div class="stage waiting" id="stage-fear">
+                        <div class="stage-dot"></div>
+                        <span>Fear Project</span>
+                    </div>
+                    <div class="stage waiting" id="stage-yooma">
+                        <div class="stage-dot"></div>
+                        <span>Yooma.su</span>
+                    </div>
+                    <div class="stage waiting" id="stage-done">
+                        <div class="stage-dot"></div>
+                        <span>Готово</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО РЕЗУЛЬТАТОВ -->
+    <div class="modal-overlay" id="resultsModal" style="display:none;">
+        <div class="modal-container">
+            <!-- Шапка -->
+            <div class="modal-header">
+                <h2>Результаты проверки</h2>
+                <button class="close-btn" onclick="resetPage()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Сводка -->
+            <div class="modal-summary">
+                <div class="summary-item">
+                    <span class="summary-label">Всего</span>
+                    <span class="count" id="totalCount">0</span>
+                </div>
+                <div class="summary-item clean">
+                    <span class="summary-label">Чистых</span>
+                    <span class="count" id="cleanCount">0</span>
+                </div>
+                <div class="summary-item banned">
+                    <span class="summary-label">С банами</span>
+                    <span class="count" id="bannedCount">0</span>
+                </div>
+                <div class="summary-item warning">
+                    <span class="summary-label">Нет на Fear</span>
+                    <span class="count" id="notFearCount">0</span>
+                </div>
+            </div>
+
+            <!-- Сетка карточек -->
+            <div class="modal-body">
+                <div class="cards-grid" id="cardsGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v=6"></script>
+</body>
+</html>

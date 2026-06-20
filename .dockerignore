@@ -1,0 +1,8 @@
+.env
+.git
+*.json
+__pycache__
+stats_cache/
+update_checker*.py
+update_sync.py
+check.py
