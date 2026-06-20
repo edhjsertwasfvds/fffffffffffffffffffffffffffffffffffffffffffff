@@ -80,6 +80,21 @@ def db_save(key: str, data) -> bool:
         return True
     except Exception as e:
         logger.error(f"[DB] Ошибка сохранения {key}: {e}")
+        # Попробовать переподключиться
+        global _pool
+        _pool = None
+        conn2 = _get_conn()
+        if conn2:
+            try:
+                with conn2.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO kv_store (key, value, updated_at)
+                        VALUES (%s, %s::jsonb, NOW())
+                        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                    """, (key, json.dumps(data, ensure_ascii=False)))
+                return True
+            except Exception as e2:
+                logger.error(f"[DB] Ошибка сохранения (retry) {key}: {e2}")
     return False
 
 

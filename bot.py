@@ -421,6 +421,14 @@ def _save_json_atomic(path: Path, data: object):
         except Exception:
             pass
 
+def _kv_save_panel_data(key: str, data: object):
+    """Сохранить данные панели в kv_store (PostgreSQL) без файла."""
+    if _db.db_is_available():
+        try:
+            _db.db_save(key, data)
+        except Exception as e:
+            _log(f"⚠️ _kv_save_panel_data({key}) error: {e}")
+
 def _save_suspicious_panel(channel_id: int, message_id: int):
     _save_json_atomic(SUSPICIOUS_PANEL_FILE, {"channel_id": channel_id, "message_id": message_id})
 
@@ -1849,6 +1857,26 @@ async def _build_suspicious_embed() -> discord.Embed:
             
         if not scored_players:
             embed.description = "✅ Чисто! Подозрительных игроков не найдено."
+        else:
+            suspicious_data = []
+            for item in scored_players[:20]:
+                p = item["player"]
+                srv = item["srv"]
+                stats = item["profile"].get("stats", {}) if item["profile"] else {}
+                kills = p.get("kills", 0)
+                deaths = p.get("deaths", 1) or 1
+                kd = stats.get("kd") or (kills / deaths if deaths else 0)
+                suspicious_data.append({
+                    "steam_id": p.get("steam_id", ""),
+                    "nickname": p.get("nickname", ""),
+                    "score": item["score"],
+                    "reasons": item["reasons"],
+                    "kills": kills,
+                    "deaths": deaths,
+                    "kd": round(kd, 2),
+                    "server": srv.get("site_name", srv.get("name", "—")),
+                })
+            _kv_save_panel_data("suspicious_data.json", suspicious_data)
             
         return embed
 
@@ -3165,6 +3193,9 @@ async def _build_newbies_embeds() -> list[discord.Embed]:
     # Сортировка: от новых к старым (по часам)
     newbies.sort(key=lambda x: x[4])
 
+    newbies_data = [{"name": n, "steam_id": s, "server": sv, "connect": sc, "playtime_h": round(ph, 2)} for n, s, sv, sc, ph in newbies]
+    _kv_save_panel_data("newbies_data.json", newbies_data)
+
     all_embeds = []
     current_lines = []
     current_len = 0
@@ -3593,6 +3624,7 @@ async def admin_online_panel_loop():
     try:
         _log(f"👮 [ADMIN PANEL] Обновление панели...", discord=False)
         enriched = await _refresh_admin_online_cache()
+        _kv_save_panel_data("admin_online_data.json", enriched)
         total = len(enriched)
         if total == 0:
             return
@@ -3642,6 +3674,7 @@ async def cmd_admin_online_panel(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         enriched = await _refresh_admin_online_cache()
+        _kv_save_panel_data("admin_online_data.json", enriched)
         total = len(enriched)
         total_pages = max(1, (total + 4) // 5)
         embed = _build_admin_online_embed_for_page(1, total_pages)
