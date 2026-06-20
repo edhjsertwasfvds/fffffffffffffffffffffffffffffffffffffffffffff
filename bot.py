@@ -22,6 +22,7 @@ import traceback
 import db as _db
 
 load_dotenv()
+_db.db_init()
 
 def _env_int(key: str, default: int) -> int:
     raw = os.getenv(key)
@@ -1240,7 +1241,7 @@ def _load_access_list() -> list[dict]:
     return []
 
 def _save_access_list(lst: list[dict]):
-    ACCESS_LIST_FILE.write_text(json.dumps(lst, ensure_ascii=False, indent=2), encoding="utf-8")
+    _save_json_atomic(ACCESS_LIST_FILE, lst)
 
 def _is_admin(interaction: discord.Interaction) -> bool:
     """Проверяет наличие прав администратора бота (полный доступ)."""
@@ -8458,6 +8459,7 @@ async def on_ready():
         _log(f"❌ Ошибка синхронизации: {e}", discord=False)
     if not monitor_loop.is_running():
         monitor_loop.start()
+    await asyncio.sleep(2)
     if not reports_loop.is_running():
         reports_loop.start()
     # Первичная синхронизация при старте — ждем её завершения перед запуском циклов
@@ -8465,40 +8467,58 @@ async def on_ready():
 
     if not track_loop.is_running():
         track_loop.start()
+    await asyncio.sleep(1)
     if not ban_check_loop.is_running():
         ban_check_loop.start()
+    await asyncio.sleep(1)
     if not staff_db_sync_loop.is_running():
         staff_db_sync_loop.start()
+    await asyncio.sleep(1)
     if not discord_sync_loop.is_running():
         discord_sync_loop.start()
+    await asyncio.sleep(2)
     if not leaderboard_sync_loop.is_running():
         leaderboard_sync_loop.start()
+    await asyncio.sleep(2)
     if not leaderboard_online_update_loop.is_running():
         leaderboard_online_update_loop.start()
+    await asyncio.sleep(2)
     if not suspicious_monitor_loop.is_running():
         suspicious_monitor_loop.start()
+    await asyncio.sleep(1)
     if not newbies_panel_loop.is_running():
         newbies_panel_loop.start()
+    await asyncio.sleep(1)
     if not admin_online_panel_loop.is_running():
         admin_online_panel_loop.start()
+    await asyncio.sleep(1)
     if not staffboard_panel_loop.is_running():
         staffboard_panel_loop.start()
+    await asyncio.sleep(1)
     if not leaderstaff_panel_loop.is_running():
         leaderstaff_panel_loop.start()
+    await asyncio.sleep(2)
     if not punishments_hourly_scan_loop.is_running():
         punishments_hourly_scan_loop.start()
+    await asyncio.sleep(2)
     if not punishments_daily_refresh_loop.is_running():
         punishments_daily_refresh_loop.start()
+    await asyncio.sleep(2)
     if not staff_punish_scan_loop.is_running():
         staff_punish_scan_loop.start()
+    await asyncio.sleep(2)
     if not mute_repeat_check_loop.is_running():
         mute_repeat_check_loop.start()
+    await asyncio.sleep(2)
     if not staff_status_refresh_loop.is_running():
         staff_status_refresh_loop.start()
+    await asyncio.sleep(2)
     if not role_sync_loop.is_running():
         role_sync_loop.start()
+    await asyncio.sleep(1)
     if not drops_loop.is_running():
         drops_loop.start()
+    await asyncio.sleep(1)
     if not online_record_loop.is_running():
         online_record_loop.start()
 
