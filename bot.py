@@ -10331,11 +10331,26 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _graceful_exit)
 
     if is_railway:
-        # Railway: просто запускаем, Railway сам перезапустит при падении
-        try:
-            bot.run(TOKEN)
-        except KeyboardInterrupt:
-            _cancel_pending_tasks()
+        # Railway: цикл с retry при rate limit и ошибках соединения
+        retry_delay = 10
+        while True:
+            try:
+                _log("🚀 Запуск бота...", discord=False)
+                bot.run(TOKEN)
+            except KeyboardInterrupt:
+                _cancel_pending_tasks()
+                break
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "Too Many" in err_str or "rate" in err_str.lower():
+                    _log(f"⚠️ Discord rate limit (429). Повтор через {retry_delay} сек...", discord=False)
+                elif "Cloudflare" in err_str or "1015" in err_str:
+                    _log(f"⚠️ Cloudflare заблокировал. Повтор через {retry_delay} сек...", discord=False)
+                else:
+                    _log(f"⚠️ Ошибка запуска: {e}", discord=False)
+                    retry_delay = min(retry_delay * 2, 120)
+                time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 120)
     else:
         # Локально: цикл с реконнектом
         retry_delay = 5
