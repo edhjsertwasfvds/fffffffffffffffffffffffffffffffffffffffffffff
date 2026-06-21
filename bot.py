@@ -8675,7 +8675,7 @@ def _parse_vdf_steamids(text: str) -> list[str]:
 _fear_profile_cache: dict = {}
 
 # Семафор: не более 20 VDF проверок одновременно
-_vdf_semaphore = asyncio.Semaphore(60)
+_vdf_semaphore = asyncio.Semaphore(100)
 # Кэш Fear профилей для VDF (чтобы не дёргать API повторно для одних и тех же SteamID)
 _vdf_fear_cache: dict = {}
 # Callback для уведомления об окончании обновления кэша стаффа
@@ -8820,7 +8820,7 @@ async def _fetch_json_cached(steamid: str) -> dict | None:
             _fear_profile_cache[steamid] = data
         return data
 
-async def _fetch_fear_profile(session: aiohttp.ClientSession, steamid: str, retries: int = 3) -> dict | None:
+async def _fetch_fear_profile(session: aiohttp.ClientSession, steamid: str, retries: int = 2) -> dict | None:
     """Получает профиль Fear с повторными попытками."""
     for attempt in range(retries):
         try:
@@ -8830,7 +8830,7 @@ async def _fetch_fear_profile(session: aiohttp.ClientSession, steamid: str, retr
         except Exception:
             pass
         if attempt < retries - 1:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.3)
     return None
 
 async def _check_vdf_accounts(steamids: list[str]) -> list[dict]:
@@ -9256,7 +9256,7 @@ async def on_message(message: discord.Message):
                     )
 
                     # Yooma — параллельно со всем
-                    yooma_sem = asyncio.Semaphore(50)
+                    yooma_sem = asyncio.Semaphore(100)
                     async def yooma_with_sem(sid: str):
                         async with yooma_sem:
                             return await _check_yooma_ban(session, sid)
@@ -9299,7 +9299,7 @@ async def on_message(message: discord.Message):
                     # Запускаем Fear API параллельно со Steam + Yooma
                     fear_future = None
                     if uncached:
-                        fear_sem = asyncio.Semaphore(50)
+                        fear_sem = asyncio.Semaphore(100)
                         async def fetch_with_sem(sid):
                             async with fear_sem:
                                 return await _fetch_fear_profile(session, sid, retries=1)
