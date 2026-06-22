@@ -23,6 +23,8 @@ interface AccountCheckResult {
   fear_url?: string;
   steam_url?: string;
   yooma_url?: string;
+  ban_duration_days?: number;
+  ban_expiry_date?: string;
   kills?: number;
   deaths?: number;
   kd?: number;
