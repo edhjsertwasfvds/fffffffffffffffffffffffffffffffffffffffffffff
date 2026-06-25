@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Shield, Activity, BarChart3, TrendingUp, Clock, Award, Zap, Globe } from 'lucide-react';
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  Users, Shield, Activity, BarChart3, Award, Zap, Globe,
+  Package, Banknote, Sparkles, TrendingUp, Clock, Maximize2
+} from 'lucide-react';
+import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
-import type { StaffMember, DashboardStats } from '../types';
+import type { StaffMember, DashboardStats, DropItem, DropsStats } from '../types';
 
 const roleColors: Record<string, string> = {
   OWNER: 'from-red-500 to-red-600',
@@ -16,18 +19,6 @@ const roleColors: Record<string, string> = {
   MODER: 'from-blue-500 to-blue-600',
   MLMODER: 'from-cyan-500 to-cyan-600',
   CURATOR: 'from-purple-500 to-purple-600',
-};
-
-const roleBadgeColors: Record<string, string> = {
-  OWNER: 'bg-red-500/20 text-red-400 border-red-500/30',
-  GLADMIN: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  STADMIN: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  ADMIN: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  ADMIN_PLUS: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  STMODER: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  MODER: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-  MLMODER: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-  CURATOR: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 };
 
 const roleNames: Record<string, string> = {
@@ -42,6 +33,17 @@ const roleNames: Record<string, string> = {
   CURATOR: 'Куратор',
 };
 
+const rarityGradients: Record<string, string> = {
+  '#b0c3d9': 'from-gray-400 to-gray-500',
+  '#5e98d9': 'from-blue-400 to-blue-500',
+  '#4b69ff': 'from-indigo-400 to-indigo-500',
+  '#8847ff': 'from-purple-400 to-purple-500',
+  '#d32ce6': 'from-fuchsia-400 to-fuchsia-500',
+  '#eb4b4b': 'from-red-400 to-red-500',
+  '#ffd700': 'from-yellow-300 to-amber-400',
+  '#ade55c': 'from-lime-400 to-green-500',
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -49,25 +51,43 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [activityData, setActivityData] = useState<any[]>([]);
   const [activitySummary, setActivitySummary] = useState<any>(null);
-  const [serversData, setServersData] = useState<any[]>([]);
+  const [drops, setDrops] = useState<DropItem[]>([]);
+  const [dropsStats, setDropsStats] = useState<DropsStats[]>([]);
+  const [dropsServerStats, setDropsServerStats] = useState<any[]>([]);
+  const [dropsLoading, setDropsLoading] = useState(true);
+  const [dropsPeriod, setDropsPeriod] = useState<'today' | 'yesterday' | '7days'>('today');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  useEffect(() => {
-    Promise.all([
-      api.getStaff().catch(() => ({ data: [] })),
-      api.getDashboardStats().catch(() => ({ data: { total_staff: 0, staff_by_role: {} } })),
-      api.getServerActivity(24).catch(() => ({ data: [] })),
-      api.getServerActivitySummary().catch(() => null),
-      api.getServers().catch(() => []),
-    ]).then(([staffRes, statsRes, activityRes, summaryRes, serversRes]) => {
+  const loadDashboard = async () => {
+    try {
+      const [staffRes, statsRes, activityRes, summaryRes, dropsRes, dropsStatsRes, dropsServersRes] = await Promise.all([
+        api.getStaff().catch(() => ({ data: [] })),
+        api.getDashboardStats().catch(() => ({ data: { total_staff: 0, staff_by_role: {} } })),
+        api.getServerActivity(24).catch(() => ({ data: [] })),
+        api.getServerActivitySummary().catch(() => null),
+        api.getDrops({ hours: 24, limit: 12 }).catch(() => ({ drops: [] })),
+        api.getDropsStats({ period: dropsPeriod }).catch(() => ({ stats: [] })),
+        api.getDropsServerStats({ hours: 24 }).catch(() => ({ servers: [] })),
+      ]);
       setStaff(staffRes.data || []);
       setStats(statsRes.data);
       setActivityData(activityRes?.data || []);
       setActivitySummary(summaryRes);
-      const servers = Array.isArray(serversRes) ? serversRes : (serversRes?.data || serversRes?.servers || []);
-      setServersData(servers);
+      setDrops(dropsRes?.drops || []);
+      setDropsStats(dropsStatsRes?.stats || []);
+      setDropsServerStats(dropsServersRes?.servers || []);
+      setLastRefresh(new Date());
+    } finally {
       setLoading(false);
-    });
-  }, []);
+      setDropsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+    const interval = setInterval(loadDashboard, 60000);
+    return () => clearInterval(interval);
+  }, [dropsPeriod]);
 
   const chartData = activityData.map((d: any) => ({
     time: new Date(d.timestamp * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
@@ -75,32 +95,44 @@ export default function DashboardPage() {
     admins: d.total_admins,
   }));
 
-  const hourlyData = activitySummary?.hourly
-    ? Object.entries(activitySummary.hourly).map(([h, v]) => ({
-        hour: `${String(h).padStart(2, '0')}:00`,
-        players: v,
-      })).sort((a: any, b: any) => a.hour.localeCompare(b.hour))
-    : [];
-
   const statCards = [
     { label: 'Total Staff', value: stats?.total_staff || 0, icon: Users, color: 'from-accent-blue to-accent-purple' },
-    { label: 'Your Level', value: user?.level || 0, icon: Award, color: 'from-emerald-500 to-emerald-600' },
-    { label: 'Permissions', value: user?.permissions?.length || 0, icon: Shield, color: 'from-amber-500 to-amber-600' },
     { label: 'Groups Active', value: Object.keys(stats?.staff_by_role || {}).length, icon: BarChart3, color: 'from-cyan-500 to-cyan-600' },
+    { label: 'Online Staff', value: activitySummary?.current_admins || 0, icon: Shield, color: 'from-emerald-500 to-emerald-600' },
+    { label: 'Online Players', value: activitySummary?.current || 0, icon: Globe, color: 'from-blue-500 to-blue-600' },
   ];
 
   const onlineCards = [
     { label: 'Online Now', value: activitySummary?.current || 0, icon: Globe, color: 'from-green-500 to-green-600' },
-    { label: 'Max (24h)', value: activitySummary?.max_24h || 0, icon: TrendingUp, color: 'from-blue-500 to-blue-600' },
+    { label: 'Max (24h)', value: activitySummary?.max_24h || 0, icon: Maximize2, color: 'from-blue-500 to-blue-600' },
     { label: 'Avg (24h)', value: activitySummary?.avg_24h || 0, icon: Activity, color: 'from-purple-500 to-purple-600' },
     { label: 'Snapshots', value: activitySummary?.snapshots_24h || 0, icon: Clock, color: 'from-amber-500 to-amber-600' },
   ];
 
-  const totalServerPlayers = serversData.reduce((sum: number, s: any) => sum + (s.players_online || s.live_data?.players?.length || 0), 0);
-  const totalMaxPlayers = serversData.reduce((sum: number, s: any) => sum + (s.max_players || 0), 0);
-  const totalServers = serversData.length;
+  const todayStats = dropsStats[0] || {
+    total_drops: 0,
+    total_value: 0,
+    unique_players: 0,
+    average_value: 0,
+    most_expensive: 0,
+  };
 
-  const topStaff = staff.sort((a, b) => (b.level || 0) - (a.level || 0)).slice(0, 6);
+  const dropsChartData = useMemo(() => {
+    return dropsStats.map((s) => ({
+      date: s.date.slice(5),
+      drops: s.total_drops,
+      value: Math.round(s.total_value),
+    })).reverse();
+  }, [dropsStats]);
+
+  const dropsCards = [
+    { label: 'Всего дропов', value: todayStats.total_drops, icon: Package, color: 'from-blue-500 to-indigo-500' },
+    { label: 'Общая стоимость', value: `₽${Math.round(todayStats.total_value).toLocaleString('ru-RU')}`, icon: Banknote, color: 'from-emerald-500 to-green-600' },
+    { label: 'Уникальных игроков', value: todayStats.unique_players, icon: Users, color: 'from-purple-500 to-fuchsia-500' },
+    { label: 'Средняя стоимость', value: `₽${Math.round(todayStats.average_value).toLocaleString('ru-RU')}`, icon: Sparkles, color: 'from-amber-500 to-orange-500' },
+  ];
+
+  const formatPrice = (n: number) => `₽${Math.round(n).toLocaleString('ru-RU')}`;
 
   if (loading) {
     return (
@@ -111,7 +143,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <h1 className="text-3xl font-bold text-white mb-2">
           Welcome back, <span className="gradient-text">{user?.display_name || user?.username}</span>
@@ -161,55 +193,169 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* FearProject Server Stats */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.25 }}
+      {/* Drops Stats */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
         className="glass-card p-6"
       >
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Globe className="w-5 h-5 text-accent-blue" />
-          FearProject — Статистика серверов
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#0c0e14] rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Серверов</p>
-            <p className="text-2xl font-bold text-white">{totalServers}</p>
-          </div>
-          <div className="bg-[#0c0e14] rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Онлайн</p>
-            <p className="text-2xl font-bold text-emerald-400">{totalServerPlayers}</p>
-          </div>
-          <div className="bg-[#0c0e14] rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Макс. мест</p>
-            <p className="text-2xl font-bold text-gray-300">{totalMaxPlayers}</p>
-          </div>
-          <div className="bg-[#0c0e14] rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-gray-500 mb-1">Заполненность</p>
-            <p className="text-2xl font-bold text-blue-400">{totalMaxPlayers > 0 ? Math.round((totalServerPlayers / totalMaxPlayers) * 100) : 0}%</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Package className="w-5 h-5 text-accent-blue" />
+            Дропы FearProject
+          </h2>
+          <div className="flex items-center gap-2 bg-[#0c0e14] rounded-xl p-1 border border-white/5">
+            {(['today', 'yesterday', '7days'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setDropsPeriod(p)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  dropsPeriod === p
+                    ? 'bg-[#1a1f2e] text-white'
+                    : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {p === 'today' ? 'Сегодня' : p === 'yesterday' ? 'Вчера' : '7 дней'}
+              </button>
+            ))}
           </div>
         </div>
-        {serversData.length > 0 && (
-          <div className="mt-4 space-y-2 max-h-[200px] overflow-y-auto">
-            {serversData.map((s: any, i: number) => {
-              const online = s.players_online || s.live_data?.players?.length || 0;
-              const max = s.max_players || 0;
-              const pct = max > 0 ? Math.round((online / max) * 100) : 0;
-              return (
-                <div key={i} className="flex items-center gap-3 px-3 py-2 bg-[#0c0e14] rounded-lg border border-white/5">
-                  <span className="text-sm text-white font-medium truncate min-w-[140px]">{s.name || `Server ${s.id}`}</span>
-                  <div className="flex-1 h-2 bg-dark-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs text-gray-400 min-w-[60px] text-right">{online}/{max}</span>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {dropsCards.map((card, i) => (
+            <motion.div key={card.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }} whileHover={{ y: -2 }}
+              className="bg-[#0c0e14] rounded-xl p-4 border border-white/5"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`w-8 h-8 bg-gradient-to-br ${card.color} rounded-lg flex items-center justify-center`}>
+                  <card.icon className="w-4 h-4 text-white" />
                 </div>
-              );
-            })}
+                <p className="text-xs text-gray-500">{card.label}</p>
+              </div>
+              <p className="text-xl font-bold text-white">
+                {dropsLoading ? <span className="inline-block w-16 h-5 bg-[#1a1f2e] rounded animate-pulse" /> : card.value}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent drops */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-accent-blue" />
+              Последние дропы
+            </h3>
+            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+              {dropsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-14 bg-[#0c0e14] rounded-xl border border-white/5 animate-pulse" />
+                ))
+              ) : drops.length === 0 ? (
+                <div className="text-sm text-gray-500 bg-[#0c0e14] rounded-xl p-4 border border-white/5">
+                  Нет данных о дропах за выбранный период. Бот ещё не записал дропы в базу.
+                </div>
+              ) : (
+                drops.map((drop, i) => {
+                  const rarity = rarityGradients[drop.rarity_color] || 'from-gray-500 to-gray-600';
+                  return (
+                    <motion.div key={drop.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.2, delay: i * 0.03 }}
+                      className="flex items-center gap-3 px-3 py-2.5 bg-[#0c0e14] rounded-xl border border-white/5 hover:border-white/10 transition-colors"
+                    >
+                      <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${rarity} flex items-center justify-center flex-shrink-0`}>
+                        {drop.image ? (
+                          <img src={drop.image} alt="" className="w-8 h-8 object-contain rounded" />
+                        ) : (
+                          <Package className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{drop.name}</p>
+                        <p className="text-xs text-gray-500">{drop.steamid}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-emerald-400">{formatPrice(drop.price)}</p>
+                        <p className="text-[10px] text-gray-600">
+                          {new Date(drop.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Drops chart */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4 text-accent-blue" />
+              Динамика дропов
+            </h3>
+            <div className="bg-[#0c0e14] rounded-xl p-4 border border-white/5 h-[320px]">
+              {dropsChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dropsChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e2333" />
+                    <XAxis dataKey="date" stroke="#6b7280" tick={{ fontSize: 11 }} />
+                    <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{ background: '#1a1f2e', border: '1px solid #2d3548', borderRadius: 8, fontSize: 12 }}
+                      formatter={(value: any, name: any) => {
+                        if (name === 'value') return [`₽${Number(value).toLocaleString('ru-RU')}`, 'Сумма'];
+                        return [value, 'Дропы'];
+                      }}
+                    />
+                    <Bar dataKey="drops" radius={[4, 4, 0, 0]}>
+                      {dropsChartData.map((_, i) => (
+                        <Cell key={`cell-${i}`} fill={i === dropsChartData.length - 1 ? '#4f7cff' : '#1e2333'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                  {dropsLoading ? 'Загрузка графика...' : 'Нет данных для графика'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {dropsServerStats.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-accent-blue" />
+              Топ серверов по дропам
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {dropsServerStats.map((srv, i) => (
+                <motion.div key={srv.server_id || i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: 0.1 + i * 0.05 }}
+                  className="bg-[#0c0e14] rounded-xl p-3 border border-white/5 flex items-center justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{srv.server_name || srv.server_id}</p>
+                    <p className="text-xs text-gray-500">{srv.drops_count} дропов</p>
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-400">{formatPrice(srv.total_value)}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {todayStats.most_expensive > 0 && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-gray-400">
+            <TrendingUp className="w-4 h-4 text-amber-400" />
+            Самый дорогой дроп за период: <span className="text-white font-semibold">{formatPrice(todayStats.most_expensive)}</span>
           </div>
         )}
       </motion.div>
 
       {/* Server Activity Chart */}
       {chartData.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}
           className="glass-card p-6"
         >
           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
@@ -235,103 +381,11 @@ export default function DashboardPage() {
         </motion.div>
       )}
 
-      {/* Hourly Average Chart */}
-      {hourlyData.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}
-          className="glass-card p-6"
-        >
-          <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-accent-blue" />
-            Average Players by Hour
-          </h2>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={hourlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e2333" />
-              <XAxis dataKey="hour" stroke="#6b7280" tick={{ fontSize: 10 }} />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: '#1a1f2e', border: '1px solid #2d3548', borderRadius: 8, fontSize: 12 }} />
-              <Bar dataKey="players" fill="#4f7cff" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-      )}
-
-      {/* Role Distribution */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.4 }}
-        className="glass-card p-6"
-      >
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-accent-blue" />
-          Staff Distribution
-        </h2>
-        <div className="space-y-3">
-          {Object.entries(stats?.staff_by_role || {})
-            .sort(([, a], [, b]) => b - a)
-            .map(([role, count], i) => {
-              const maxCount = Math.max(...Object.values(stats?.staff_by_role || {}));
-              const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
-              return (
-                <motion.div key={role} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.3, delay: 0.5 + i * 0.05 }}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${roleColors[role] || 'from-gray-500 to-gray-600'}`} />
-                      <span className="text-sm text-gray-300">{roleNames[role] || role}</span>
-                    </div>
-                    <span className="text-sm font-semibold text-white">{count}</span>
-                  </div>
-                  <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${percentage}%` }}
-                      transition={{ duration: 0.8, delay: 0.6 + i * 0.1 }}
-                      className={`h-full bg-gradient-to-r ${roleColors[role] || 'from-gray-500 to-gray-600'} rounded-full`}
-                    />
-                  </div>
-                </motion.div>
-              );
-            })}
-        </div>
-      </motion.div>
-
-      {/* Top Staff */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.5 }}
-        className="glass-card p-6"
-      >
-        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-accent-blue" />
-          Top Staff Members
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {topStaff.map((member, i) => (
-            <motion.div key={member.steam_id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.6 + i * 0.1 }} whileHover={{ scale: 1.02 }}
-              className="glass-card-hover p-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className={`w-12 h-12 bg-gradient-to-br ${roleColors[member.group_name] || 'from-gray-500 to-gray-600'} rounded-xl flex items-center justify-center shadow-lg`}>
-                    <span className="text-white font-bold text-lg">{member.name?.charAt(0)?.toUpperCase() || '?'}</span>
-                  </div>
-                  {i < 3 && (
-                    <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-                      i === 0 ? 'bg-yellow-500' : i === 1 ? 'bg-gray-400' : 'bg-amber-600'
-                    }`}>{i + 1}</div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white truncate">{member.name}</p>
-                  <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${roleBadgeColors[member.group_name] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
-                    {member.role}
-                  </span>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-white">LVL {member.level}</p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+      {/* Last refresh */}
+      <div className="text-xs text-gray-600 flex items-center gap-2">
+        <Zap className="w-3 h-3" />
+        <span>Обновлено: {lastRefresh.toLocaleTimeString('ru-RU')}</span>
+      </div>
     </div>
   );
 }

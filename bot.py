@@ -10238,6 +10238,17 @@ def _load_drops():
         except Exception:
             _drops_log = {}
             _drops_known_ids = set()
+    # Также загружаем из БД, чтобы не терять записи после рестарта
+    try:
+        db_rows = db.db_get_drops(since_ts=0, limit=50000)
+        for row in db_rows:
+            did = str(row.get("id", ""))
+            if did:
+                _drops_log[did] = row
+                _drops_known_ids.add(did)
+    except Exception as e:
+        _log(f"⚠️ drops DB load error: {e}", discord=False)
+
 
 def _save_drops():
     _save_json_atomic(DROPS_FILE, _drops_log)
@@ -10247,8 +10258,6 @@ _load_drops()
 @tasks.loop(seconds=30)
 async def drops_loop():
     """Каждые 30 секунд проверяет новые дропы на Fear и логирует их."""
-    if not FEAR_COOKIE:
-        return
     try:
         async with aiohttp.ClientSession() as session:
             headers = await _fear_headers()
@@ -10274,8 +10283,10 @@ async def drops_loop():
             created = drop.get("created_at", "")
             image = drop.get("image", "")
             rarity = drop.get("rarity_color", "")
+            server_id = drop.get("server_id", "")
+            server_name = drop.get("server_name", "")
 
-            _drops_log[did] = {
+            entry = {
                 "id": did,
                 "name": name,
                 "price": price,
@@ -10283,8 +10294,12 @@ async def drops_loop():
                 "created_at": created,
                 "image": image,
                 "rarity_color": rarity,
+                "server_id": server_id,
+                "server_name": server_name,
             }
+            _drops_log[did] = entry
             _drops_known_ids.add(did)
+            db.db_save_drop(entry)
             new_count += 1
 
         if new_count:

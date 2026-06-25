@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"fearstaff-api/config"
 	"fearstaff-api/database"
@@ -19,6 +20,15 @@ func NewUserHandler(cfg *config.Config, db *database.DB) *UserHandler {
 	return &UserHandler{cfg: cfg, db: db}
 }
 
+func (h *UserHandler) isStaffGroup(groupName string) bool {
+	for _, g := range h.cfg.StaffGroupNames {
+		if strings.EqualFold(g, groupName) {
+			return true
+		}
+	}
+	return false
+}
+
 func (h *UserHandler) GetStaff(w http.ResponseWriter, r *http.Request) {
 	result := make([]map[string]interface{}, 0)
 
@@ -26,21 +36,24 @@ func (h *UserHandler) GetStaff(w http.ResponseWriter, r *http.Request) {
 	if h.db != nil {
 		admins, err := h.db.GetAdminsWithProfiles()
 		if err == nil && len(admins) > 0 {
-			for _, a := range admins {
-				gn, _ := a["group_name"].(string)
-				gdn, _ := a["group_display_name"].(string)
-				rp, ok := h.cfg.RoleMap[gn]
-				level := 0
-				roleName := gdn
-				if ok {
-					level = rp.Level
-					roleName = rp.RoleName
-				}
-				name, _ := a["name"].(string)
-				if name == "" {
-					name, _ = a["steamid"].(string)
-				}
-				entry := map[string]interface{}{
+		for _, a := range admins {
+			gn, _ := a["group_name"].(string)
+			if !h.isStaffGroup(gn) {
+				continue
+			}
+			gdn, _ := a["group_display_name"].(string)
+			rp, ok := h.cfg.RoleMap[gn]
+			level := 0
+			roleName := gdn
+			if ok {
+				level = rp.Level
+				roleName = rp.RoleName
+			}
+			name, _ := a["name"].(string)
+			if name == "" {
+				name, _ = a["steamid"].(string)
+			}
+			entry := map[string]interface{}{
 					"steam_id":          a["steamid"],
 					"name":              name,
 					"avatar":            a["avatar"],
@@ -76,6 +89,9 @@ func (h *UserHandler) GetStaff(w http.ResponseWriter, r *http.Request) {
 				if u.Level < 1 {
 					continue
 				}
+				if !h.isStaffGroup(u.StaffGroup) {
+					continue
+				}
 				rp, ok := h.cfg.RoleMap[u.StaffGroup]
 				level := u.Level
 				roleName := u.StaffRole
@@ -101,11 +117,14 @@ func (h *UserHandler) GetStaff(w http.ResponseWriter, r *http.Request) {
 	if len(result) == 0 && h.db != nil {
 		staffList, err := h.db.GetStaffListFromDB()
 		if err == nil && len(staffList) > 0 {
-			for _, s := range staffList {
-				gn, _ := s["group_name"].(string)
-				rp, _ := h.cfg.RoleMap[gn]
-				gdn, _ := s["group_display_name"].(string)
-				result = append(result, map[string]interface{}{
+		for _, s := range staffList {
+			gn, _ := s["group_name"].(string)
+			if !h.isStaffGroup(gn) {
+				continue
+			}
+			rp, _ := h.cfg.RoleMap[gn]
+			gdn, _ := s["group_display_name"].(string)
+			result = append(result, map[string]interface{}{
 					"steam_id":     s["steamid"],
 					"name":         s["name"],
 					"discord_id":   s["discord_id"],
@@ -122,13 +141,16 @@ func (h *UserHandler) GetStaff(w http.ResponseWriter, r *http.Request) {
 	if len(result) == 0 {
 		staff, err := h.db.GetStaffFromFile()
 		if err == nil {
-			for _, s := range staff {
-				rp, ok := h.cfg.RoleMap[s.GroupName]
-				level := 0
-				if ok {
-					level = rp.Level
-				}
-				result = append(result, map[string]interface{}{
+		for _, s := range staff {
+			if !h.isStaffGroup(s.GroupName) {
+				continue
+			}
+			rp, ok := h.cfg.RoleMap[s.GroupName]
+			level := 0
+			if ok {
+				level = rp.Level
+			}
+			result = append(result, map[string]interface{}{
 					"steam_id":     s.SteamID,
 					"name":         s.Name,
 					"discord_id":   s.DiscordID,

@@ -160,6 +160,25 @@ def _init_table():
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_panel_server_activity_ts ON panel_server_activity(timestamp)")
             cur.execute("""
+                CREATE TABLE IF NOT EXISTS drops (
+                    id SERIAL PRIMARY KEY,
+                    drop_id BIGINT UNIQUE NOT NULL,
+                    steamid TEXT,
+                    name TEXT,
+                    price NUMERIC DEFAULT 0,
+                    image TEXT,
+                    rarity_color TEXT,
+                    server_id TEXT,
+                    server_name TEXT,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    created_at_ts BIGINT,
+                    raw_json JSONB,
+                    UNIQUE(drop_id, steamid)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_drops_created_at ON drops(created_at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_drops_steamid ON drops(steamid)")
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS vdf_rechecks (
                     id SERIAL PRIMARY KEY,
                     check_id INTEGER NOT NULL,
@@ -810,6 +829,114 @@ def db_save_server_activity(total_players: int, total_admins: int, server_data: 
     except Exception as e:
         logger.error(f"[DB] Ошибка save_server_activity: {e}")
         return False
+
+
+def db_save_drop(drop: dict) -> bool:
+    """Сохранить один дроп в БД."""
+    conn = _get_conn()
+    if not conn:
+        return False
+    try:
+        created = drop.get("created_at", "")
+        created_ts = 0
+        if isinstance(created, (int, float)):
+            created_ts = int(created)
+            if created_ts > 1e12:
+                created_dt = datetime.datetime.fromtimestamp(created_ts / 1000, tz=datetime.timezone.utc)
+            else:
+                created_dt = datetime.datetime.fromtimestamp(created_ts, tz=datetime.timezone.utc)
+        elif isinstance(created, str):
+            created_dt = _parse_drop_time(created)
+            if created_dt:
+                created_ts = int(created_dt.timestamp() * 1000)
+        else:
+            created_dt = datetime.datetime.now(datetime.timezone.utc)
+            created_ts = int(created_dt.timestamp() * 1000)
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO drops (drop_id, steamid, name, price, image, rarity_color, server_id, server_name, created_at, created_at_ts, raw_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (drop_id) DO UPDATE SET
+                    name = EXCLUDED.name,
+                    price = EXCLUDED.price,
+                    image = EXCLUDED.image,
+                    rarity_color = EXCLUDED.rarity_color,
+                    server_id = EXCLUDED.server_id,
+                    server_name = EXCLUDED.server_name,
+                    created_at = EXCLUDED.created_at,
+                    created_at_ts = EXCLUDED.created_at_ts,
+                    raw_json = EXCLUDED.raw_json
+            """, (
+                drop.get("id"),
+                drop.get("steamid"),
+                drop.get("name"),
+                drop.get("price", 0),
+                drop.get("image"),
+                drop.get("rarity_color"),
+                drop.get("server_id"),
+                drop.get("server_name"),
+                created_dt,
+                created_ts,
+                json.dumps(drop, ensure_ascii=False, default=str)
+            ))
+        return True
+    except Exception as e:
+        logger.error(f"[DB] Ошибка save_drop: {e}")
+        return False
+
+
+def _parse_drop_time(s: str):
+    """Парсит строку времени дропа."""
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S.%fZ"):
+        try:
+            return datetime.datetime.strptime(s, fmt).replace(tzinfo=datetime.timezone.utc)
+        except ValueError:
+            continue
+    try:
+        ts = int(s)
+        if ts > 1e12:
+            return datetime.datetime.fromtimestamp(ts / 1000, tz=datetime.timezone.utc)
+        return datetime.datetime.fromtimestamp(ts, tz=datetime.timezone.utc)
+    except Exception:
+        return None
+
+
+def db_get_drops(since_ts: int = 0, limit: int = 1000) -> list[dict]:
+    """Получить дропы из БД."""
+    conn = _get_conn()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT drop_id, steamid, name, price, image, rarity_color, server_id, server_name, created_at, created_at_ts, raw_json
+                FROM drops
+                WHERE created_at_ts >= %s
+                ORDER BY created_at_ts DESC
+                LIMIT %s
+            """, (since_ts, limit))
+            rows = []
+            for r in cur.fetchall():
+                raw = r["raw_json"] or {}
+                rows.append({
+                    "id": r["drop_id"],
+                    "steamid": r["steamid"],
+                    "name": r["name"],
+                    "price": float(r["price"]) if r["price"] else 0,
+                    "image": r["image"],
+                    "rarity_color": r["rarity_color"],
+                    "server_id": r["server_id"],
+                    "server_name": r["server_name"],
+                    "created_at": r["created_at_ts"] or 0,
+                    "raw": raw
+                })
+            return rows
+    except Exception as e:
+        logger.error(f"[DB] Ошибка get_drops: {e}")
+        return []
 
 
 # ── VDF Rechecks ─────────────────────────────────────────────────────────────

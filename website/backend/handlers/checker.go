@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -234,7 +236,7 @@ func (h *CheckHandler) CheckVDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, `{"error":"file required"}`, http.StatusBadRequest)
 		return
@@ -308,6 +310,49 @@ func (h *CheckHandler) CheckVDF(w http.ResponseWriter, r *http.Request) {
 	for _, r := range results {
 		if r.Status == "banned" {
 			banned++
+		}
+	}
+
+	// Save to VDF history so the check appears in the archive.
+	if h.db != nil {
+		checkID, _ := h.db.GetNextCheckID()
+		filename := header.Filename
+		if filename == "" {
+			filename = "config.vdf"
+		}
+
+		sortedIDs := make([]string, len(steamIDs))
+		copy(sortedIDs, steamIDs)
+		sort.Strings(sortedIDs)
+		hashInput := filename + "\n" + strings.Join(sortedIDs, "\n")
+		configHash := fmt.Sprintf("%x", sha256.Sum256([]byte(hashInput)))
+
+		_ = h.db.SaveConfigAccounts(configHash, steamIDs, filename)
+
+		resultsJSON, _ := json.Marshal(results)
+		_ = h.db.SaveVDFCheck(checkID, filename, "", "", resultsJSON, steamIDs, banned)
+
+		for _, res := range results {
+			vacDays := 0
+			if res.VACDaysAgo > 0 {
+				vacDays = res.VACDaysAgo
+			}
+			_ = h.db.SaveVDFHistoryEntry(
+				checkID,
+				res.SteamID,
+				res.Name,
+				res.FearBanned,
+				res.FearReason,
+				res.FearUnbanTime,
+				res.VACBanned,
+				vacDays,
+				res.GameBans,
+				res.YoomaBanned,
+				res.YoomaReason,
+				"",
+				configHash,
+				filename,
+			)
 		}
 	}
 

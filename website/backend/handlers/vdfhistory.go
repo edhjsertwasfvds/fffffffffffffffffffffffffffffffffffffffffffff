@@ -371,6 +371,16 @@ func (h *VDFHistoryHandler) RequestRecheck(w http.ResponseWriter, r *http.Reques
 
 	id, err := h.db.CreateVDFRecheck(req.CheckID, req.SteamIDs)
 	if err != nil {
+		if err.Error() == "already pending" {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"success":    true,
+				"recheck_id": id,
+				"status":     "pending",
+				"message":    "Перепроверка уже запущена, ожидайте.",
+			})
+			return
+		}
 		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
 		return
 	}

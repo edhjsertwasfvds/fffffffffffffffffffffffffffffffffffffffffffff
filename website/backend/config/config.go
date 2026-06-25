@@ -23,7 +23,9 @@ type Config struct {
 	FearCookie           string
 	SteamAPIKey          string
 
-	RoleMap map[string]RolePermission
+	RoleMap         map[string]RolePermission
+	StaffGroupNames []string
+	CORSOrigins     []string
 }
 
 type RolePermission struct {
@@ -51,6 +53,22 @@ func Load() *Config {
 		FearCookie:           getEnv("FEAR_COOKIE", ""),
 		SteamAPIKey:          getEnv("STEAM_API_KEY", ""),
 	}
+
+	cfg.StaffGroupNames = getEnvList("STAFF_GROUP_NAMES", []string{
+		"MLMODER", "MODER", "STMODER", "ADMIN", "ADMIN_PLUS", "STADMIN", "GLADMIN", "STAFF",
+	})
+
+	defaultCORS := []string{
+		cfg.FrontendURL,
+		"http://localhost:5173",
+		"http://localhost:3000",
+		"https://fearsearchstaff.vercel.app",
+		"https://fearsearch.pl",
+		"https://www.fearsearch.pl",
+		"https://fearsearchstaff-git-main-edhjsertwasfvds-projects.vercel.app",
+	}
+	extraCORS := getEnvList("CORS_ORIGIN", []string{})
+	cfg.CORSOrigins = mergeUniqueStrings(defaultCORS, extraCORS)
 
 	cfg.RoleMap = map[string]RolePermission{
 		"OWNER": {
@@ -141,15 +159,31 @@ func Load() *Config {
 				"staff.view", "punishments.view",
 			},
 		},
-		"ADMIN_PLUS": {
-			Level:    1,
-			RoleName: "Администратор+",
-			RoleID:   getEnv("DISCORD_ROLE_ADMIN_PLUS", "1507939502147113000"),
-			Permissions: []string{
-				"staff.view", "punishments.view",
-			},
+	"ADMIN_PLUS": {
+		Level:    1,
+		RoleName: "Администратор+",
+		RoleID:   getEnv("DISCORD_ROLE_ADMIN_PLUS", "1507939502147113000"),
+		Permissions: []string{
+			"staff.view", "punishments.view",
 		},
-		"UNDEFINED": {
+	},
+	"STAFF": {
+		Level:    2,
+		RoleName: "Стафф",
+		RoleID:   getEnv("DISCORD_ROLE_STAFF", ""),
+		Permissions: []string{
+			"staff.view", "punishments.view",
+		},
+	},
+	"SYSTEM_ADMIN": {
+		Level:    4,
+		RoleName: "Системный админ",
+		RoleID:   getEnv("DISCORD_ROLE_SYSTEM_ADMIN", ""),
+		Permissions: []string{
+			"staff.view", "punishments.view", "reports.view",
+		},
+	},
+	"UNDEFINED": {
 			Level:    -1,
 			RoleName: "Заблокирован",
 			RoleID:   getEnv("DISCORD_ROLE_UNDEFINED", "1507941424488910981"),
@@ -191,4 +225,22 @@ func getEnvList(key string, fallback []string) []string {
 		}
 	}
 	return fallback
+}
+
+func mergeUniqueStrings(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, s := range a {
+		if _, ok := seen[s]; !ok && s != "" {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	for _, s := range b {
+		if _, ok := seen[s]; !ok && s != "" {
+			seen[s] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	return out
 }

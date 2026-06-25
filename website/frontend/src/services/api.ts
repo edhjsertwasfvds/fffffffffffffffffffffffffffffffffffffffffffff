@@ -131,6 +131,15 @@ class ApiService {
     return this.request(`/api/staff/punishments/by-admin?${searchParams.toString()}`);
   }
 
+  async getPunishmentsBySteamID(steamId: string, type?: number, limit?: number, offset?: number) {
+    const searchParams = new URLSearchParams();
+    searchParams.set('steamid', steamId);
+    if (type !== undefined) searchParams.set('type', String(type));
+    if (limit) searchParams.set('limit', String(limit));
+    if (offset) searchParams.set('offset', String(offset));
+    return this.request(`/api/staff/punishments/by-steamid?${searchParams.toString()}`);
+  }
+
   async getPunishmentsTrend(days?: number) {
     const d = days || 30;
     return this.request(`/api/staff/punishments/trend?days=${d}`);
@@ -152,8 +161,16 @@ class ApiService {
     return this.request(`/api/steam/summary/${steamId}`);
   }
 
+  async getSteamSummaries(steamIds: string[]) {
+    return this.request(`/api/steam/summaries?steamids=${steamIds.join(',')}`);
+  }
+
   async getSteamBans(steamId: string) {
     return this.request(`/api/steam/bans/${steamId}`);
+  }
+
+  async getSteamBansList(steamIds: string[]) {
+    return this.request(`/api/steam/bans?steamids=${steamIds.join(',')}`);
   }
 
   async getSteamFriends(steamId: string) {
@@ -227,6 +244,34 @@ class ApiService {
 
   async getServerActivitySummary() {
     return this.request('/api/server-activity/summary');
+  }
+
+  async getDrops(params?: { date?: string; hours?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.date) searchParams.set('date', params.date);
+    if (params?.hours !== undefined) searchParams.set('hours', String(params.hours));
+    if (params?.limit !== undefined) searchParams.set('limit', String(params.limit));
+    const qs = searchParams.toString();
+    return this.request(`/api/drops${qs ? '?' + qs : ''}`);
+  }
+
+  async getDropsServerStats(params?: { hours?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.hours !== undefined) searchParams.set('hours', String(params.hours));
+    const qs = searchParams.toString();
+    return this.request(`/api/drops/servers${qs ? '?' + qs : ''}`);
+  }
+
+  async getDropsStats(params?: { date?: string; period?: 'today' | 'yesterday' | '7days' | 'week' }) {
+    const searchParams = new URLSearchParams();
+    if (params?.date) searchParams.set('date', params.date);
+    if (params?.period) searchParams.set('period', params.period);
+    const qs = searchParams.toString();
+    return this.request(`/api/drops/stats${qs ? '?' + qs : ''}`);
+  }
+
+  async getDropsLeaderboard() {
+    return this.request('/api/drops/leaderboard');
   }
 
   async getAdminUsers() {

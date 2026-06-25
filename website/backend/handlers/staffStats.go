@@ -102,6 +102,38 @@ func (h *StaffStatsHandler) GetPunishmentsByAdmin(w http.ResponseWriter, r *http
 	})
 }
 
+func (h *StaffStatsHandler) GetPunishmentsBySteamID(w http.ResponseWriter, r *http.Request) {
+	if h.db == nil {
+		http.Error(w, `{"error":"database not available"}`, http.StatusInternalServerError)
+		return
+	}
+
+	steamID := r.URL.Query().Get("steamid")
+	if steamID == "" {
+		http.Error(w, `{"error":"steamid required"}`, http.StatusBadRequest)
+		return
+	}
+
+	ptype, _ := strconv.Atoi(r.URL.Query().Get("type"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	if limit <= 0 {
+		limit = 100
+	}
+
+	punishments, err := h.db.GetPunishmentsBySteamID(steamID, ptype, limit, offset)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"punishments": punishments,
+		"total":       len(punishments),
+	})
+}
+
 func (h *StaffStatsHandler) GetPunishmentsTrend(w http.ResponseWriter, r *http.Request) {
 	if h.db == nil {
 		http.Error(w, `{"error":"database not available"}`, http.StatusInternalServerError)

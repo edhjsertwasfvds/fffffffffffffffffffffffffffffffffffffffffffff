@@ -48,42 +48,38 @@ export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout, hasLevel } = useAuth();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [serverStats, setServerStats] = useState({ admins: 0, players: 0 });
+  const [onlinePlayers, setOnlinePlayers] = useState(0);
+  const [onlineStaff, setOnlineStaff] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [serversRes, staffRes] = await Promise.allSettled([
-          api.getServers(),
-          api.getStaff(),
-        ]);
+        const serversRes = await api.getServers().catch(() => []);
+        const servers = Array.isArray(serversRes) ? serversRes : (serversRes?.data || serversRes?.servers || []);
         let totalPlayers = 0;
-        if (serversRes.status === 'fulfilled') {
-          const servers = Array.isArray(serversRes.value) ? serversRes.value : (serversRes.value?.data || serversRes.value?.servers || []);
-          for (const s of servers) {
-            totalPlayers += s.players_online || s.live_data?.players?.length || 0;
-          }
+        for (const s of servers) {
+          totalPlayers += s.players_online || s.live_data?.players?.length || 0;
         }
-        let totalAdmins = 0;
-        if (staffRes.status === 'fulfilled') {
-          const staffData = staffRes.value;
-          const staffList = Array.isArray(staffData?.data) ? staffData.data : (Array.isArray(staffData) ? staffData : []);
-          totalAdmins = staffList.length;
-        }
-        setServerStats({ admins: totalAdmins, players: totalPlayers });
+        setOnlinePlayers(totalPlayers);
       } catch {
-        setServerStats({ admins: 0, players: 0 });
+        setOnlinePlayers(0);
+      }
+      try {
+        const summary = await api.getServerActivitySummary().catch(() => null);
+        setOnlineStaff(summary?.current_admins || 0);
+      } catch {
+        setOnlineStaff(0);
       }
     };
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
+    const interval = setInterval(fetchStats, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const getRoleLabel = (group: string) => {
     const labels: Record<string, string> = {
       OWNER: 'Владелец',
-      OWNER_ALT: 'Владелец (Alt)',
+      OWNER_ALT: 'Владелец',
       CURATOR: 'Куратор',
       GLADMIN: 'Гл. Администратор',
       STADMIN: 'Ст. Администратор',
@@ -95,7 +91,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       ADMIN_PLUS: 'Администратор+',
       CHECKER: 'Чекер',
     };
-    return labels[group] || 'Пользователь';
+    return labels[group] || 'Staff';
   };
 
   const getLevelColor = (level: number) => {
@@ -146,12 +142,12 @@ export default function Layout({ children }: { children: ReactNode }) {
           {/* Server Stats */}
           <div className="bg-[#12151e] rounded-xl p-3 border border-white/5 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-500">Админов</span>
-              <span className="text-xs font-bold text-emerald-400">{serverStats.admins}</span>
+              <span className="text-[11px] text-gray-500">Игроков онлайн</span>
+              <span className="text-xs font-bold text-blue-400">{onlinePlayers}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-500">Игроков</span>
-              <span className="text-xs font-bold text-blue-400">{serverStats.players}</span>
+              <span className="text-[11px] text-gray-500">Админов онлайн</span>
+              <span className="text-xs font-bold text-emerald-400">{onlineStaff}</span>
             </div>
           </div>
         </div>
@@ -189,6 +185,34 @@ export default function Layout({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+
+        {/* Mobile-only user / logout */}
+        <div className="lg:hidden p-4 border-t border-white/5">
+          <div className="flex items-center gap-3 mb-3">
+            {user?.avatar ? (
+              <img
+                src={`https://cdn.discordapp.com/avatars/${user.discord_id}/${user.avatar}.png?size=64`}
+                alt={user.username}
+                className="w-10 h-10 rounded-full ring-2 ring-blue-500/30"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-[#1e2333] rounded-full flex items-center justify-center">
+                <Users className="w-5 h-5 text-gray-500" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-white truncate">{user?.display_name || user?.username || 'User'}</p>
+              <p className="text-[11px] text-gray-500 truncate">{getRoleLabel(user?.staff_group || '')}</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full px-4 py-2 bg-[#1e2333] hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-lg text-xs text-gray-400 hover:text-red-400 transition-all flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-3 h-3" />
+            Выйти
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -233,9 +257,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-2 mb-3">
-            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getLevelColor(user?.level || 0)}`}>
-              LVL {user?.level || 0}
-            </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#1a1f2e] border border-white/5 text-gray-400">
               {getRoleLabel(user?.staff_group || '')}
             </span>

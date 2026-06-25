@@ -137,6 +137,23 @@ func (db *DB) migrate() error {
 			UNIQUE(config_hash, steamid)
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_config_accounts_steamid ON config_accounts(steamid)`,
+		`CREATE TABLE IF NOT EXISTS drops (
+			id SERIAL PRIMARY KEY,
+			drop_id BIGINT UNIQUE NOT NULL,
+			steamid VARCHAR(32),
+			name VARCHAR(255),
+			price NUMERIC DEFAULT 0,
+			image TEXT,
+			rarity_color VARCHAR(32),
+			server_id VARCHAR(64),
+			server_name VARCHAR(255),
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			created_at_ts BIGINT,
+			raw_json JSONB
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_drops_created_at_ts ON drops(created_at_ts DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_drops_steamid ON drops(steamid)`,
+		`CREATE INDEX IF NOT EXISTS idx_drops_server_id ON drops(server_id)`,
 		`CREATE TABLE IF NOT EXISTS vdf_history (
 			id SERIAL PRIMARY KEY,
 			check_id INTEGER,
@@ -157,6 +174,28 @@ func (db *DB) migrate() error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_vdf_history_steamid ON vdf_history(steamid)`,
 		`CREATE INDEX IF NOT EXISTS idx_vdf_history_check_id ON vdf_history(check_id)`,
+		// Shared tables created by bot, ensured here for fresh backend deployments
+		`CREATE TABLE IF NOT EXISTS punishments (
+			id BIGINT PRIMARY KEY,
+			type SMALLINT NOT NULL CHECK (type IN (1, 2)),
+			steamid VARCHAR(32) NOT NULL,
+			name VARCHAR(255),
+			admin VARCHAR(255),
+			admin_steamid VARCHAR(32),
+			admin_avatar TEXT,
+			avatar TEXT,
+			reason TEXT,
+			status INTEGER,
+			duration INTEGER,
+			created BIGINT,
+			expires BIGINT,
+			unban_price INTEGER,
+			raw_json JSONB,
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_punishments_type_created ON punishments(type, created DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_punishments_steamid ON punishments(steamid)`,
+		`CREATE INDEX IF NOT EXISTS idx_punishments_admin_steamid ON punishments(admin_steamid)`,
 	}
 
 	for _, q := range queries {
@@ -164,6 +203,25 @@ func (db *DB) migrate() error {
 			return fmt.Errorf("migration query failed: %w\nQuery: %s", err, q)
 		}
 	}
+
+	// Migrate legacy drops column name from created_at_ms to created_at_ts (bot uses ts)
+	if _, err := db.pool.Exec(ctx, `
+		DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'drops' AND column_name = 'created_at_ms'
+			) AND NOT EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_name = 'drops' AND column_name = 'created_at_ts'
+			) THEN
+				ALTER TABLE drops RENAME COLUMN created_at_ms TO created_at_ts;
+			END IF;
+		END $$;
+	`); err != nil {
+		log.Printf("⚠️ drops column migration skipped: %v", err)
+	}
+
 	log.Println("✅ Database migration completed")
 	return nil
 }
@@ -1081,8 +1139,20 @@ func (db *DB) CreateVDFRecheck(checkID int, steamIDs []string) (int, error) {
 		return 0, fmt.Errorf("no database")
 	}
 	ctx := context.Background()
-	var id int
+
+	var existingID int
 	err := db.pool.QueryRow(ctx, `
+		SELECT id FROM vdf_rechecks
+		WHERE check_id = $1 AND status = 'pending'
+		ORDER BY requested_at DESC
+		LIMIT 1
+	`, checkID).Scan(&existingID)
+	if err == nil && existingID > 0 {
+		return existingID, fmt.Errorf("already pending")
+	}
+
+	var id int
+	err = db.pool.QueryRow(ctx, `
 		INSERT INTO vdf_rechecks (check_id, steamids, status)
 		VALUES ($1, $2, 'pending') RETURNING id
 	`, checkID, steamIDs).Scan(&id)
@@ -1439,6 +1509,33 @@ func (db *DB) GetPunishmentsList(ptype int, limit, offset int) ([]map[string]int
 	return scanPunishmentRows(rows)
 }
 
+func (db *DB) GetPunishmentsBySteamID(steamID string, ptype int, limit, offset int) ([]map[string]interface{}, error) {
+	if db.pool == nil {
+		return nil, fmt.Errorf("no database")
+	}
+	ctx := context.Background()
+	var rows pgx.Rows
+	var err error
+	if ptype > 0 {
+		rows, err = db.pool.Query(ctx, `
+			SELECT id, type, steamid, name, admin, admin_steamid, reason, status, duration, created, expires, updated_at
+			FROM punishments WHERE steamid = $1 AND type = $2
+			ORDER BY created DESC LIMIT $3 OFFSET $4
+		`, steamID, ptype, limit, offset)
+	} else {
+		rows, err = db.pool.Query(ctx, `
+			SELECT id, type, steamid, name, admin, admin_steamid, reason, status, duration, created, expires, updated_at
+			FROM punishments WHERE steamid = $1
+			ORDER BY created DESC LIMIT $2 OFFSET $3
+		`, steamID, limit, offset)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPunishmentRows(rows)
+}
+
 func scanPunishmentRows(rows pgx.Rows) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 	for rows.Next() {
@@ -1518,6 +1615,12 @@ func (db *DB) GetServerActivitySummary() (map[string]interface{}, error) {
 		FROM panel_server_activity WHERE timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')
 	`).Scan(&maxPlayers, &avgPlayers, &totalSnapshots)
 
+	var maxAdmins, avgAdmins, currentAdmins int
+	_ = db.pool.QueryRow(ctx, `
+		SELECT COALESCE(MAX(total_admins), 0), COALESCE(AVG(total_admins)::int, 0), COALESCE((ARRAY_AGG(total_admins ORDER BY id DESC))[1], 0)
+		FROM panel_server_activity WHERE timestamp > EXTRACT(EPOCH FROM NOW() - INTERVAL '24 hours')
+	`).Scan(&maxAdmins, &avgAdmins, &currentAdmins)
+
 	var lastPlayers int
 	_ = db.pool.QueryRow(ctx, `
 		SELECT total_players FROM panel_server_activity ORDER BY id DESC LIMIT 1
@@ -1541,10 +1644,168 @@ func (db *DB) GetServerActivitySummary() (map[string]interface{}, error) {
 	}
 
 	return map[string]interface{}{
-		"max_24h":       maxPlayers,
-		"avg_24h":       avgPlayers,
-		"current":       lastPlayers,
-		"snapshots_24h": totalSnapshots,
-		"hourly":        hourly,
+		"max_24h":        maxPlayers,
+		"avg_24h":        avgPlayers,
+		"current":        lastPlayers,
+		"current_admins": currentAdmins,
+		"max_admins_24h": maxAdmins,
+		"avg_admins_24h": avgAdmins,
+		"snapshots_24h":  totalSnapshots,
+		"hourly":         hourly,
 	}, nil
+}
+
+// SaveDrop сохраняет один дроп в БД.
+func (db *DB) SaveDrop(dropID int64, steamid, name string, price float64, image, rarityColor, serverID, serverName string, createdAt time.Time, createdAtMs int64, raw []byte) error {
+	if db.pool == nil {
+		return fmt.Errorf("no database")
+	}
+	ctx := context.Background()
+	_, err := db.pool.Exec(ctx, `
+		INSERT INTO drops (drop_id, steamid, name, price, image, rarity_color, server_id, server_name, created_at, created_at_ts, raw_json)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (drop_id) DO UPDATE SET
+			steamid = EXCLUDED.steamid,
+			name = EXCLUDED.name,
+			price = EXCLUDED.price,
+			image = EXCLUDED.image,
+			rarity_color = EXCLUDED.rarity_color,
+			server_id = EXCLUDED.server_id,
+			server_name = EXCLUDED.server_name,
+			created_at = EXCLUDED.created_at,
+			created_at_ts = EXCLUDED.created_at_ts,
+			raw_json = EXCLUDED.raw_json
+	`, dropID, steamid, name, price, image, rarityColor, serverID, serverName, createdAt, createdAtMs, raw)
+	return err
+}
+
+// GetDropsFromDB возвращает дропы из БД за период.
+func (db *DB) GetDropsFromDB(since time.Time, limit int) ([]map[string]interface{}, error) {
+	if db.pool == nil {
+		return nil, fmt.Errorf("no database")
+	}
+	ctx := context.Background()
+	rows, err := db.pool.Query(ctx, `
+		SELECT drop_id, steamid, name, price, image, rarity_color, server_id, server_name, created_at, created_at_ts, raw_json
+		FROM drops
+		WHERE created_at >= $1
+		ORDER BY created_at_ts DESC
+		LIMIT $2
+	`, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []map[string]interface{}
+	for rows.Next() {
+		var dropID int64
+		var steamid, name, image, rarityColor, serverID, serverName string
+		var createdAt time.Time
+		var createdAtMs int64
+		var raw []byte
+		var price float64
+		if err := rows.Scan(&dropID, &steamid, &name, &price, &image, &rarityColor, &serverID, &serverName, &createdAt, &createdAtMs, &raw); err != nil {
+			continue
+		}
+		createdStr := ""
+		if createdAtMs > 0 {
+			createdStr = time.UnixMilli(createdAtMs).UTC().Format("2006-01-02T15:04:05Z")
+		} else if !createdAt.IsZero() {
+			createdStr = createdAt.UTC().Format("2006-01-02T15:04:05Z")
+		}
+		items = append(items, map[string]interface{}{
+			"id":           dropID,
+			"steamid":      steamid,
+			"name":         name,
+			"price":        price,
+			"image":        image,
+			"rarity_color": rarityColor,
+			"server_id":    serverID,
+			"server_name":  serverName,
+			"created_at":   createdStr,
+		})
+	}
+	return items, nil
+}
+
+// GetDropsStatsFromDB возвращает статистику дропов по дням из БД.
+func (db *DB) GetDropsStatsFromDB(start, end time.Time) ([]map[string]interface{}, error) {
+	if db.pool == nil {
+		return nil, fmt.Errorf("no database")
+	}
+	ctx := context.Background()
+	rows, err := db.pool.Query(ctx, `
+		SELECT DATE(created_at) as d, COUNT(*) as total, COALESCE(SUM(price), 0) as total_value, COUNT(DISTINCT steamid) as unique_players, MAX(price) as max_price
+		FROM drops
+		WHERE created_at >= $1 AND created_at <= $2
+		GROUP BY DATE(created_at)
+		ORDER BY d DESC
+	`, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []map[string]interface{}
+	for rows.Next() {
+		var date time.Time
+		var total int
+		var totalValue, maxPrice float64
+		var uniquePlayers int
+		if err := rows.Scan(&date, &total, &totalValue, &uniquePlayers, &maxPrice); err != nil {
+			continue
+		}
+		avg := 0.0
+		if total > 0 {
+			avg = totalValue / float64(total)
+		}
+		stats = append(stats, map[string]interface{}{
+			"date":           date.Format("2006-01-02"),
+			"total_drops":    total,
+			"total_value":    totalValue,
+			"unique_players": uniquePlayers,
+			"average_value":  avg,
+			"most_expensive": maxPrice,
+		})
+	}
+	return stats, nil
+}
+
+// DropServerStats возвращает статистику дропов по серверам.
+func (db *DB) DropServerStats(since time.Time, limit int) ([]map[string]interface{}, error) {
+	if db.pool == nil {
+		return nil, fmt.Errorf("no database")
+	}
+	ctx := context.Background()
+	rows, err := db.pool.Query(ctx, `
+		SELECT COALESCE(server_name, 'Неизвестно') as sname, COUNT(*) as drops, COUNT(DISTINCT steamid) as players, SUM(price) as value
+		FROM drops
+		WHERE created_at >= $1 AND server_id IS NOT NULL
+		GROUP BY server_name
+		ORDER BY drops DESC
+		LIMIT $2
+	`, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []map[string]interface{}
+	for rows.Next() {
+		var sname string
+		var drops, players int
+		var value float64
+		if err := rows.Scan(&sname, &drops, &players, &value); err != nil {
+			continue
+		}
+		result = append(result, map[string]interface{}{
+			"server_name":    sname,
+			"server_id":      sname,
+			"drops_count":    drops,
+			"unique_players": players,
+			"total_value":    value,
+		})
+	}
+	return result, nil
 }

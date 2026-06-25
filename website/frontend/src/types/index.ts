@@ -19,6 +19,7 @@ export interface User {
 export interface StaffMember {
   steam_id: string;
   name: string;
+  avatar?: string;
   discord_id: string;
   discord_name: string;
   role: string;
@@ -200,4 +201,35 @@ export interface AccountResult {
   fear_url?: string;
   steam_url?: string;
   yooma_url?: string;
+}
+
+export interface DropItem {
+  id: number;
+  steamid: string;
+  name: string;
+  price: number;
+  created_at: string;
+  image: string;
+  rarity_color: string;
+}
+
+export interface DropsStats {
+  date: string;
+  total_drops: number;
+  total_value: number;
+  unique_players: number;
+  average_value: number;
+  most_expensive: number;
+}
+
+export interface DropsLeaderboardPlayer {
+  steam_id: string;
+  name: string;
+  avatar: string;
+  count: number;
+  skins: Array<{
+    name: string;
+    price: number;
+    image: string;
+  }>;
 }

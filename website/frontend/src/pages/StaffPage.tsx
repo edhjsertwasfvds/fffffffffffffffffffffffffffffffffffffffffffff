@@ -6,41 +6,53 @@ import type { StaffMember } from '../types';
 
 const roleColors: Record<string, string> = {
   OWNER: 'from-red-500 to-red-600',
+  OWNER_ALT: 'from-red-600 to-red-700',
+  CURATOR: 'from-purple-500 to-purple-600',
   GLADMIN: 'from-orange-500 to-orange-600',
   STADMIN: 'from-yellow-500 to-yellow-600',
-  ADMIN: 'from-amber-500 to-amber-600',
   ADMIN_PLUS: 'from-amber-500 to-amber-600',
+  ADMIN: 'from-amber-500 to-amber-600',
   STMODER: 'from-emerald-500 to-emerald-600',
   MODER: 'from-blue-500 to-blue-600',
   MLMODER: 'from-cyan-500 to-cyan-600',
-  CURATOR: 'from-purple-500 to-purple-600',
+  STAFF: 'from-pink-500 to-pink-600',
+  SYSTEM_ADMIN: 'from-indigo-500 to-indigo-600',
+  DOSTUP: 'from-gray-500 to-gray-600',
 };
 
 const roleBadgeColors: Record<string, string> = {
   OWNER: 'bg-red-500/20 text-red-400 border-red-500/30',
+  OWNER_ALT: 'bg-red-600/20 text-red-400 border-red-600/30',
+  CURATOR: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   GLADMIN: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
   STADMIN: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  ADMIN: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   ADMIN_PLUS: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  ADMIN: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   STMODER: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
   MODER: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   MLMODER: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-  CURATOR: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+  STAFF: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  SYSTEM_ADMIN: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+  DOSTUP: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
 const roleNames: Record<string, string> = {
   OWNER: 'Владелец',
+  OWNER_ALT: 'Владелец',
+  CURATOR: 'Куратор',
   GLADMIN: 'Гл. Администратор',
   STADMIN: 'Ст. Администратор',
-  ADMIN: 'Администратор',
   ADMIN_PLUS: 'Администратор+',
+  ADMIN: 'Администратор',
   STMODER: 'Ст. Модератор',
   MODER: 'Модератор',
   MLMODER: 'Мл. Модератор',
-  CURATOR: 'Куратор',
+  STAFF: 'Стафф',
+  SYSTEM_ADMIN: 'Системный админ',
+  DOSTUP: 'Доступ',
 };
 
-const groups = ['ALL', 'OWNER', 'GLADMIN', 'STADMIN', 'ADMIN', 'STMODER', 'MODER', 'MLMODER', 'CURATOR'];
+const groups = ['ALL', 'OWNER', 'OWNER_ALT', 'CURATOR', 'GLADMIN', 'STADMIN', 'ADMIN_PLUS', 'ADMIN', 'STMODER', 'MODER', 'MLMODER', 'STAFF', 'SYSTEM_ADMIN', 'DOSTUP'];
 
 interface StaffStatsMap {
   [steamid: string]: {
@@ -79,10 +91,10 @@ export default function StaffPage() {
   }, []);
 
   const filtered = staff.filter((m) => {
-    const matchesSearch = !search ||
-      m.name?.toLowerCase().includes(search.toLowerCase()) ||
-      m.discord_name?.toLowerCase().includes(search.toLowerCase()) ||
-      m.steam_id?.includes(search);
+    const q = search.toLowerCase().trim();
+    const matchesSearch = !q ||
+      m.name?.toLowerCase().includes(q) ||
+      m.steam_id?.includes(q);
     const matchesGroup = filterGroup === 'ALL' || m.group_name === filterGroup;
     return matchesSearch && matchesGroup;
   });
@@ -187,7 +199,7 @@ export default function StaffPage() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="flex gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
-          <input type="text" placeholder="Search by name, Discord, or SteamID..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-12" />
+          <input type="text" placeholder="Поиск по нику или SteamID..." value={search} onChange={(e) => setSearch(e.target.value)} className="input-field pl-12" />
         </div>
         <div className="relative">
           <button onClick={() => setShowFilter(!showFilter)} className="flex items-center gap-2 px-4 py-3 glass-card hover:border-accent-blue/30 transition-all">
@@ -266,8 +278,12 @@ function StaffCard({ member, index, stats }: { member: StaffMember; index: numbe
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-4">
-        <div className={`w-14 h-14 bg-gradient-to-br ${roleColors[member.group_name] || 'from-gray-500 to-gray-600'} rounded-2xl flex items-center justify-center shadow-lg`}>
-          <span className="text-white font-bold text-xl">{member.name?.charAt(0)?.toUpperCase() || '?'}</span>
+        <div className={`w-14 h-14 bg-gradient-to-br ${roleColors[member.group_name] || 'from-gray-500 to-gray-600'} rounded-2xl flex items-center justify-center shadow-lg overflow-hidden`}>
+          {member.avatar ? (
+            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-white font-bold text-xl">{member.name?.charAt(0)?.toUpperCase() || '?'}</span>
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -295,7 +311,9 @@ function StaffCard({ member, index, stats }: { member: StaffMember; index: numbe
           )}
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold text-white">LVL {member.level}</p>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${roleBadgeColors[member.group_name] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'}`}>
+            {roleNames[member.group_name] || member.group_name}
+          </span>
         </div>
       </div>
 

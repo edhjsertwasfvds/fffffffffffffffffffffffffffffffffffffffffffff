@@ -91,7 +91,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 30000);
+    const interval = setInterval(fetchStats, 60000);
     return () => clearInterval(interval);
   }, [fetchStats]);
 
@@ -117,11 +117,11 @@ export default function StatsPage() {
 
   return (
     <div className="max-w-[1100px] mx-auto">
-      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Статистика</h1>
-          <p className="text-sm text-[#8a8a93] mt-1">
-            🔨 Баны  🔇 Муты  📊 Всего  ✂️ Снято • {admins.length} человек • Обновлено: {lastRefresh.toLocaleTimeString('ru-RU')}
+          <p className="text-sm text-gray-500 mt-1">
+            Баны / Муты / Всего / Снято • {admins.length} человек • Обновлено: {lastRefresh.toLocaleTimeString('ru-RU')}
           </p>
         </div>
         <button onClick={() => { setLoading(true); fetchStats(); }}
@@ -131,41 +131,38 @@ export default function StatsPage() {
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-        className="grid grid-cols-5 gap-4 mb-6">
-        <div className="bg-[#12151e] rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-2 mb-2"><ShieldX className="w-4 h-4 text-red-400" /><span className="text-xs text-gray-500">Баны</span></div>
-          <p className="text-2xl font-bold text-white">{totalStats.bans}</p>
-        </div>
-        <div className="bg-[#12151e] rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-2 mb-2"><AlertTriangle className="w-4 h-4 text-amber-400" /><span className="text-xs text-gray-500">Муты</span></div>
-          <p className="text-2xl font-bold text-white">{totalStats.mutes}</p>
-        </div>
-        <div className="bg-[#12151e] rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-2 mb-2"><TrendingUp className="w-4 h-4 text-blue-400" /><span className="text-xs text-gray-500">Всего</span></div>
-          <p className="text-2xl font-bold text-white">{totalStats.total}</p>
-        </div>
-        <div className="bg-[#12151e] rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-2 mb-2"><Scissors className="w-4 h-4 text-emerald-400" /><span className="text-xs text-gray-500">Снято</span></div>
-          <p className="text-2xl font-bold text-white">{totalStats.removed}</p>
-        </div>
-        <div className="bg-[#12151e] rounded-xl p-4 border border-white/5">
-          <div className="flex items-center gap-2 mb-2"><Users className="w-4 h-4 text-purple-400" /><span className="text-xs text-gray-500">Сотрудников</span></div>
-          <p className="text-2xl font-bold text-white">{stats.length}</p>
-        </div>
+        className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {[
+          { label: 'Баны', value: totalStats.bans, icon: ShieldX },
+          { label: 'Муты', value: totalStats.mutes, icon: AlertTriangle },
+          { label: 'Всего', value: totalStats.total, icon: TrendingUp },
+          { label: 'Снято', value: totalStats.removed, icon: Scissors },
+          { label: 'Сотрудников', value: stats.length, icon: Users },
+        ].map((card) => (
+          <div key={card.label} className="bg-[#12151e] rounded-xl p-4 border border-white/5">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-7 h-7 rounded-lg bg-[#4f7cff]/10 flex items-center justify-center">
+                <card.icon className="w-4 h-4 text-[#4f7cff]" />
+              </div>
+              <span className="text-xs text-gray-500">{card.label}</span>
+            </div>
+            <p className="text-2xl font-bold text-white">{card.value}</p>
+          </div>
+        ))}
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
         className="bg-[#12151e] rounded-xl border border-white/5 overflow-hidden">
-        <div className="grid grid-cols-[40px_1fr_100px_80px_80px_80px_80px] gap-3 px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-wider font-semibold">
-          <span>№</span><span>Сотрудник</span><span>Роль</span><span>🔨 Баны</span><span>🔇 Муты</span><span>📊 Всего</span><span>✂️ Снято</span>
+        <div className="hidden sm:grid grid-cols-[40px_1fr_100px_80px_80px_80px_80px] gap-3 px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-wider font-semibold">
+          <span>№</span><span>Сотрудник</span><span>Роль</span><span>Баны</span><span>Муты</span><span>Всего</span><span>Снято</span>
         </div>
         <div className="divide-y divide-white/[0.03] max-h-[calc(100vh-400px)] overflow-y-auto">
           {sorted.map((s, i) => {
             const admin = admins.find(a => (a.steamid === s.steamid) || (a.steam_id === s.steamid));
             return (
               <motion.div key={s.steamid} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: Math.min(i * 0.02, 0.5) }}
-                className="grid grid-cols-[40px_1fr_100px_80px_80px_80px_80px] gap-3 px-5 py-3 hover:bg-[#161a25] transition-colors items-center">
-                <span className="text-sm text-gray-600">{i + 1}</span>
+                className="grid grid-cols-1 sm:grid-cols-[40px_1fr_100px_80px_80px_80px_80px] gap-2 sm:gap-3 px-5 py-3 hover:bg-[#161a25] transition-colors items-start sm:items-center">
+                <span className="hidden sm:block text-sm text-gray-600">{i + 1}</span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     {s.avatar ? (
@@ -187,9 +184,9 @@ export default function StatsPage() {
                     </div>
                   </div>
                 </div>
-                <span className="text-[11px] text-blue-400 truncate">{admin?.group_display_name || admin?.group_name || '—'}</span>
-                <span className="text-sm text-red-400 font-medium">{s.bans || 0}</span>
-                <span className="text-sm text-amber-400 font-medium">{s.mutes || 0}</span>
+                <span className="text-[11px] text-gray-300 truncate">{admin?.group_display_name || admin?.group_name || '—'}</span>
+                <span className="text-sm text-white font-medium">{s.bans || 0}</span>
+                <span className="text-sm text-white font-medium">{s.mutes || 0}</span>
                 <span className="text-sm text-white font-bold">{s.total || 0}</span>
                 <span className="text-sm text-gray-400">{s.removed || 0}</span>
               </motion.div>

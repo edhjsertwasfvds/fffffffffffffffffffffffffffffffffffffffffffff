@@ -100,25 +100,27 @@ export default function CheckerPage() {
     }
   }, [input, mode]);
 
-  const handleVDFUpload = useCallback(async () => {
-    if (!vdfFile) return;
+  const handleVDFUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || vdfFile;
+    if (!file) return;
     setLoading(true);
     setVdfResults([]);
     setResults([]);
     setSearchNote('');
 
     try {
-      const res = await api.checkVDF(vdfFile);
+      const res = await api.checkVDF(file);
       setVdfResults(res.results || []);
       setVdfCount(res.count || 0);
       setVdfBannedCount(res.banned_count || 0);
       setSearchNote(`Найдено ${res.count} SteamID, ${res.banned_count} забанено`);
-    } catch {
+    } catch (err: any) {
       setVdfResults([]);
+      setSearchNote(err?.message || 'Ошибка при проверке VDF-файла');
     } finally {
       setLoading(false);
     }
-  }, [vdfFile]);
+  };
 
   return (
     <div className="max-w-[1100px] mx-auto">
@@ -129,7 +131,7 @@ export default function CheckerPage() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         className="bg-[#12151e] rounded-xl border border-white/5 p-4 mb-6">
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <button onClick={() => setMode('steamid')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mode === 'steamid' ? 'bg-[#4f7cff] text-white' : 'bg-[#1a1f2e] text-gray-400 border border-white/5 hover:text-white'}`}>
             SteamID
@@ -152,11 +154,14 @@ export default function CheckerPage() {
               {vdfFile ? vdfFile.name : 'Выберите config.vdf файл'}
               <input type="file" accept=".vdf" className="hidden" onChange={e => {
                 const f = e.target.files?.[0];
-                if (f) setVdfFile(f);
+                if (f) {
+                  setVdfFile(f);
+                  handleVDFUpload(f);
+                }
               }} />
             </label>
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              onClick={handleVDFUpload} disabled={loading || !vdfFile}
+              onClick={() => handleVDFUpload()} disabled={loading || !vdfFile}
               className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-xl transition-all disabled:opacity-50">
               {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Проверить'}
             </motion.button>
@@ -194,7 +199,7 @@ export default function CheckerPage() {
               return (
                 <motion.div key={r.steam_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                   className={`bg-[#12151e] rounded-xl border p-5 ${banned ? 'border-red-500/20' : 'border-white/5'}`}>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     {r.avatar ? (
                       <img src={r.avatar} alt={r.name} className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/10" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     ) : (
@@ -218,7 +223,7 @@ export default function CheckerPage() {
                       {(r.game_bans != null && r.game_bans > 0) && <span className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded text-xs text-orange-400 font-bold">Game Ban (×{r.game_bans})</span>}
                       {r.yooma_banned && <span className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded text-xs text-purple-400 font-bold">Yooma: {r.yooma_reason || 'Обход'}</span>}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <a href={r.fear_url || `https://fearproject.ru/profile/${r.steam_id}`} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 px-3 py-2 bg-[#4f7cff] hover:bg-[#3d6aff] text-white rounded-lg text-sm font-medium transition-all">
                         <ExternalLink className="w-3.5 h-3.5" />Fear
@@ -304,14 +309,14 @@ export default function CheckerPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1.5 ml-auto">
+                    <div className="flex flex-wrap items-center gap-1.5 ml-auto">
                       {r.fear_banned && <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-[11px] text-red-400 font-bold">Fear</span>}
                       {r.vac_banned && <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/20 rounded text-[11px] text-red-400 font-bold">VAC</span>}
                       {r.game_bans != null && r.game_bans > 0 && <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded text-[11px] text-orange-400 font-bold">Game (×{r.game_bans})</span>}
                       {r.yooma_banned && <span className="px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded text-[11px] text-purple-400 font-bold">Yooma</span>}
                     </div>
 
-                    <div className="flex gap-1.5">
+                    <div className="flex flex-wrap gap-1.5">
                       <a href={r.fear_url || `https://fearproject.ru/profile/${r.steam_id}`} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 px-3 py-2 bg-[#4f7cff] hover:bg-[#3d6aff] text-white rounded-lg text-sm font-medium transition-all">
                         <ExternalLink className="w-3.5 h-3.5" />Fear

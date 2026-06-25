@@ -30,6 +30,7 @@ func main() {
 	users := handlers.NewUserHandler(cfg, db)
 	checker := handlers.NewCheckHandler(cfg, db)
 	fearAPI := handlers.NewFearAPIHandler(cfg, db)
+	drops := handlers.NewDropsHandler(cfg, db)
 	admin := handlers.NewAdminHandler(cfg, db)
 	whitelist := handlers.NewWhitelistHandler(cfg, db)
 	evaders := handlers.NewEvadersHandler(cfg, db)
@@ -69,6 +70,10 @@ func main() {
 
 	mux.Handle("/api/servers", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetServers)))
 	mux.Handle("/api/leaderboard", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetLeaderboard)))
+	mux.Handle("/api/drops", handlers.AuthMiddleware(cfg, http.HandlerFunc(drops.GetDrops)))
+	mux.Handle("/api/drops/stats", handlers.AuthMiddleware(cfg, http.HandlerFunc(drops.GetDropsStats)))
+	mux.Handle("/api/drops/servers", handlers.AuthMiddleware(cfg, http.HandlerFunc(drops.GetDropsServerStats)))
+	mux.Handle("/api/drops/leaderboard", handlers.AuthMiddleware(cfg, http.HandlerFunc(drops.GetDropsLeaderboard)))
 	mux.Handle("/api/profile/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetProfile)))
 	mux.Handle("/api/skinchanger/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSkinchanger)))
 	mux.Handle("/api/punishments", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetPunishments)))
@@ -78,6 +83,7 @@ func main() {
 	mux.Handle("/api/punishments/staff-stats", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetStaffStats)))
 	mux.Handle("/api/staff/punishments", handlers.AuthMiddleware(cfg, http.HandlerFunc(staffStats.GetPunishmentsList)))
 	mux.Handle("/api/staff/punishments/by-admin", handlers.AuthMiddleware(cfg, http.HandlerFunc(staffStats.GetPunishmentsByAdmin)))
+	mux.Handle("/api/staff/punishments/by-steamid", handlers.AuthMiddleware(cfg, http.HandlerFunc(staffStats.GetPunishmentsBySteamID)))
 	mux.Handle("/api/staff/punishments/trend", handlers.AuthMiddleware(cfg, http.HandlerFunc(staffStats.GetPunishmentsTrend)))
 	mux.Handle("/api/staff/punishments/month-compare", handlers.AuthMiddleware(cfg, http.HandlerFunc(staffStats.GetPunishmentsMonthCompare)))
 	mux.Handle("/api/bans/check/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.CheckBan)))
@@ -86,7 +92,9 @@ func main() {
 
 	mux.Handle("/api/yooma/bans/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetYoomaBans)))
 	mux.Handle("/api/steam/summary/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamSummary)))
+	mux.Handle("/api/steam/summaries", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamSummaries)))
 	mux.Handle("/api/steam/bans/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamBans)))
+	mux.Handle("/api/steam/bans", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamBansList)))
 	mux.Handle("/api/steam/friends/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamFriends)))
 	mux.Handle("/api/steam/level/", handlers.AuthMiddleware(cfg, http.HandlerFunc(fearAPI.GetSteamLevel)))
 
@@ -111,7 +119,7 @@ func main() {
 	})
 
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{cfg.FrontendURL, "https://fearsearchstaff.vercel.app", "http://localhost:5173", "http://localhost:3000"},
+		AllowedOrigins:   cfg.CORSOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
@@ -120,6 +128,7 @@ func main() {
 	handler := c.Handler(mux)
 
 	log.Printf("🚀 FearStaff API running on :%s", cfg.Port)
+	log.Printf("🔑 Discord OAuth redirect URL: %s", cfg.DiscordRedirectURL)
 	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
 		log.Fatal(err)
 	}

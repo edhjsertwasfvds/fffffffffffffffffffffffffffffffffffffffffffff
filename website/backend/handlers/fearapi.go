@@ -579,7 +579,11 @@ func (h *FearAPIHandler) GetSteamSummary(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	steamID := parts[len(parts)-1]
-	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=9EA60BC3158081747D77604EB9819F19&steamids=%s", steamID)
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=%s&steamids=%s", steamKey, steamID)
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
 	req.Header.Set("Accept", "application/json")
@@ -602,7 +606,11 @@ func (h *FearAPIHandler) GetSteamBans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	steamID := parts[len(parts)-1]
-	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=9EA60BC3158081747D77604EB9819F19&steamids=%s", steamID)
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=%s&steamids=%s", steamKey, steamID)
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
 	req.Header.Set("Accept", "application/json")
@@ -625,7 +633,61 @@ func (h *FearAPIHandler) GetSteamFriends(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	steamID := parts[len(parts)-1]
-	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetFriendList/v1/?key=9EA60BC3158081747D77604EB9819F19&steamid=%s&relationship=friend", steamID)
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetFriendList/v1/?key=%s&steamid=%s&relationship=friend", steamKey, steamID)
+	req, _ := http.NewRequest("GET", apiURL, nil)
+	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
+	req.Header.Set("Accept", "application/json")
+	resp, err := h.client.Do(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"steam api error: %s"}`, err.Error()), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+}
+
+func (h *FearAPIHandler) GetSteamSummaries(w http.ResponseWriter, r *http.Request) {
+	steamIDs := r.URL.Query().Get("steamids")
+	if steamIDs == "" {
+		http.Error(w, `{"error":"steamids required"}`, http.StatusBadRequest)
+		return
+	}
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=%s&steamids=%s", steamKey, steamIDs)
+	req, _ := http.NewRequest("GET", apiURL, nil)
+	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
+	req.Header.Set("Accept", "application/json")
+	resp, err := h.client.Do(req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"steam api error: %s"}`, err.Error()), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+}
+
+func (h *FearAPIHandler) GetSteamBansList(w http.ResponseWriter, r *http.Request) {
+	steamIDs := r.URL.Query().Get("steamids")
+	if steamIDs == "" {
+		http.Error(w, `{"error":"steamids required"}`, http.StatusBadRequest)
+		return
+	}
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key=%s&steamids=%s", steamKey, steamIDs)
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
 	req.Header.Set("Accept", "application/json")
@@ -648,7 +710,11 @@ func (h *FearAPIHandler) GetSteamLevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	steamID := parts[len(parts)-1]
-	apiURL := fmt.Sprintf("https://api.steampowered.com/IPlayer/GetSteamLevel/v1/?key=9EA60BC3158081747D77604EB9819F19&steamid=%s", steamID)
+	steamKey := h.cfg.SteamAPIKey
+	if steamKey == "" {
+		steamKey = "9EA60BC3158081747D77604EB9819F19"
+	}
+	apiURL := fmt.Sprintf("https://api.steampowered.com/IPlayer/GetSteamLevel/v1/?key=%s&steamid=%s", steamKey, steamID)
 	req, _ := http.NewRequest("GET", apiURL, nil)
 	req.Header.Set("User-Agent", "FearStaff-Panel/1.0")
 	req.Header.Set("Accept", "application/json")

@@ -28,6 +28,16 @@ function getWsUrl(): string {
   return `${proto}//${host}/ws`;
 }
 
+const BATCH_SIZE = 90; // Steam API limit is ~100, stay safe
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    out.push(arr.slice(i, i + size));
+  }
+  return out;
+}
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,75 +48,103 @@ export default function PlayersPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [source, setSource] = useState<'ws' | 'api'>('api');
   const wsRef = useRef<Record<string, any>>({});
+  const staffMapRef = useRef<Map<string, { role: string; group: string }>>(new Map());
 
   const { connected, lastMessage } = useWebSocket(getWsUrl());
 
-  // Process WS messages — update player list instantly
+  // Process WS messages — update only live player list without heavy enrichment
   useEffect(() => {
     if (!lastMessage || lastMessage.type !== 'all_players') return;
     wsRef.current = lastMessage.players || {};
     setSource('ws');
     setLastRefresh(new Date());
 
-    // Enrich WS data with Steam summaries in background
-    enrichFromSteam(Object.keys(wsRef.current));
+    const wsPlayers: PlayerRow[] = [];
+    Object.entries(wsRef.current).forEach(([sid, p]: [string, any]) => {
+      const staffInfo = staffMapRef.current.get(sid);
+      wsPlayers.push({
+        steam_id: sid,
+        name: p.name || '',
+        nickname: p.nickname || '',
+        avatar: p.avatar || '',
+        kills: p.kills || 0,
+        deaths: p.deaths || 0,
+        kd: p.kd || (p.deaths > 0 ? p.kills / p.deaths : p.kills || 0),
+        server: p.server || '',
+        server_id: p.server_id,
+        flag: p.flag || '',
+        status: 'online',
+        staffRole: staffInfo?.role,
+        staffGroup: staffInfo?.group,
+      });
+    });
+    setPlayers(prev => {
+      // Keep existing enriched data where possible
+      const existing = new Map(prev.map(p => [p.steam_id, p]));
+      return wsPlayers.map(p => {
+        const old = existing.get(p.steam_id);
+        return old ? { ...old, ...p } : p;
+      });
+    });
   }, [lastMessage]);
 
   const enrichFromSteam = useCallback(async (steamIds: string[]) => {
     if (steamIds.length === 0) return;
-    const batch = steamIds.slice(0, 100);
-    const fetches = batch.map(async (sid) => {
+    const ids = steamIds.filter(Boolean);
+    const chunks = chunk(ids, BATCH_SIZE);
+
+    const summaryMap = new Map<string, { avatar: string; timecreated: number; name: string }>();
+    const bansMap = new Map<string, { vac: boolean; gameBans: number; daysSinceLastBan: number }>();
+
+    await Promise.all(chunks.map(async (c) => {
       try {
-        const [summaryRes, banRes, yoomaRes] = await Promise.allSettled([
-          api.getSteamSummary(sid),
-          api.getSteamBans(sid),
-          api.getYoomaBans(sid),
+        const [summaryRes, bansRes] = await Promise.allSettled([
+          api.getSteamSummaries(c),
+          api.getSteamBansList(c),
         ]);
-        const player = summaryRes.status === 'fulfilled' ? summaryRes.value?.response?.players?.[0] : null;
-        const ban = banRes.status === 'fulfilled' ? banRes.value?.players?.[0] : null;
-        const yoomaData = yoomaRes.status === 'fulfilled' ? yoomaRes.value : null;
-        const flags: string[] = [];
-        if (ban?.VACBanned) flags.push('VAC');
-        if (ban?.NumberOfGameBans > 0) flags.push('GAME BAN');
-        if (yoomaData?.ok || (yoomaData?.punishments && yoomaData.punishments.length > 0)) flags.push('YOOMA');
-        if (player) {
-          const ageDays = player.timecreated ? Math.floor((Date.now() / 1000 - player.timecreated) / 86400) : null;
-          if (ageDays !== null && ageDays < 365) flags.push(`NEW (${ageDays}д)`);
+        if (summaryRes.status === 'fulfilled') {
+          const players = summaryRes.value?.response?.players || [];
+          players.forEach((p: any) => {
+            summaryMap.set(p.steamid, {
+              avatar: p.avatarfull || p.avatarmedium || '',
+              timecreated: p.timecreated || 0,
+              name: p.personaname || '',
+            });
+          });
         }
-        return {
-          steam_id: sid,
-          timecreated: player?.timecreated || 0,
-          avatar: player?.avatarmedium || player?.avatarfull || '',
-          flags,
-        };
+        if (bansRes.status === 'fulfilled') {
+          const players = bansRes.value?.players || [];
+          players.forEach((p: any) => {
+            bansMap.set(p.SteamId, {
+              vac: p.VACBanned,
+              gameBans: p.NumberOfGameBans || 0,
+              daysSinceLastBan: p.DaysSinceLastBan || 0,
+            });
+          });
+        }
       } catch {
-        return { steam_id: sid, timecreated: 0, flags: [] as string[] };
+        // ignore chunk errors
       }
-    });
+    }));
 
-    const summaries = await Promise.all(fetches);
-    const metaMap = new Map<string, { timecreated: number; flags: string[]; avatar: string }>();
-    summaries.forEach(s => metaMap.set(s.steam_id, { timecreated: s.timecreated, flags: s.flags, avatar: s.avatar || '' }));
-
-    // Rebuild players from WS data + Steam metadata + staff
-    const staffMap = new Map<string, { role: string; group: string }>();
-    // Staff data is fetched once via fetchPlayers, stored in a ref would be ideal but not needed here
-
-    setPlayers(prev => {
-      const enriched = prev.map(p => {
-        const meta = metaMap.get(p.steam_id);
-        if (meta) {
-          return {
-            ...p,
-            account_created: meta.timecreated || p.account_created,
-            flags: meta.flags.length > 0 ? meta.flags : p.flags,
-            avatar: meta.avatar || p.avatar,
-          };
-        }
-        return p;
-      });
-      return enriched;
-    });
+    setPlayers(prev => prev.map(p => {
+      const summary = summaryMap.get(p.steam_id);
+      const bans = bansMap.get(p.steam_id);
+      const flags: string[] = [];
+      if (bans?.vac) flags.push('VAC');
+      if ((bans?.gameBans ?? 0) > 0) flags.push(`GAME BAN (×${bans?.gameBans})`);
+      if (summary?.timecreated) {
+        const ageDays = Math.floor((Date.now() / 1000 - summary.timecreated) / 86400);
+        if (ageDays < 365) flags.push(`NEW (${ageDays}д)`);
+      }
+      return {
+        ...p,
+        account_created: summary?.timecreated || p.account_created,
+        avatar: summary?.avatar || p.avatar || '',
+        name: p.name || summary?.name || '',
+        flags: flags.length > 0 ? flags : p.flags,
+      };
+    }));
   }, []);
 
   const fetchPlayers = useCallback(async () => {
@@ -124,18 +162,12 @@ export default function PlayersPage() {
             server_id: server.id,
             flag: server.flag || '',
             status: 'online' as const,
-            kd: p.kd || (p.deaths > 0 ? p.kills / p.deaths : p.kills),
+            kd: p.kd || (p.deaths > 0 ? p.kills / p.deaths : p.kills || 0),
           });
         }
       }
 
-      const steamIds = allPlayers.map(p => p.steam_id).filter(Boolean);
-      if (steamIds.length > 0) {
-        try {
-          await enrichFromSteam(steamIds);
-        } catch {}
-      }
-
+      // Load staff once and cache in ref
       try {
         const staffRes = await api.getStaff();
         const staffList = (staffRes?.data || (Array.isArray(staffRes) ? staffRes : [])) as any[];
@@ -144,6 +176,7 @@ export default function PlayersPage() {
           const sid = s.steam_id || s.steamid;
           if (sid) staffMap.set(sid, { role: s.role || s.staff_role || '', group: s.group_name || s.staff_group || '' });
         }
+        staffMapRef.current = staffMap;
         for (const p of allPlayers) {
           const staffInfo = staffMap.get(p.steam_id);
           if (staffInfo) {
@@ -156,6 +189,13 @@ export default function PlayersPage() {
       setPlayers(allPlayers);
       setLastRefresh(new Date());
       setSource('api');
+
+      const steamIds = allPlayers.map(p => p.steam_id).filter(Boolean);
+      if (steamIds.length > 0) {
+        try {
+          await enrichFromSteam(steamIds);
+        } catch {}
+      }
     } catch {
       setPlayers([]);
     } finally {
@@ -230,7 +270,7 @@ export default function PlayersPage() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-6 flex items-center justify-between"
+        className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
       >
         <div>
           <h1 className="text-2xl font-bold text-white">Игроки</h1>
@@ -247,7 +287,7 @@ export default function PlayersPage() {
         </div>
         <button
           onClick={() => { setLoading(true); fetchPlayers(); }}
-          className="flex items-center gap-2 px-4 py-2 bg-[#141822] border border-white/5 rounded-lg text-sm text-gray-400 hover:text-white hover:border-blue-500/30 transition-all"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-[#141822] border border-white/5 rounded-lg text-sm text-gray-400 hover:text-white hover:border-blue-500/30 transition-all"
         >
           <RefreshCw className="w-4 h-4" />
           Обновить
@@ -259,37 +299,37 @@ export default function PlayersPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="flex items-center gap-3 mb-4 flex-wrap"
+        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4"
       >
-        {[
-          { key: 'kills' as SortKey, label: 'По килам' },
-          { key: 'kd' as SortKey, label: 'По K/D' },
-          { key: 'flags' as SortKey, label: 'По флагам' },
-          { key: 'account_date' as SortKey, label: 'По дате акка' },
-        ].map(f => (
-          <button
-            key={f.key}
-            onClick={() => toggleSort(f.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              sortKey === f.key
-                ? 'bg-[#4f7cff] text-white'
-                : 'bg-[#141822] text-gray-400 border border-white/5 hover:text-white'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { key: 'kills' as SortKey, label: 'По килам' },
+            { key: 'kd' as SortKey, label: 'По K/D' },
+            { key: 'flags' as SortKey, label: 'По флагам' },
+            { key: 'account_date' as SortKey, label: 'По дате акка' },
+          ].map(f => (
+            <button
+              key={f.key}
+              onClick={() => toggleSort(f.key)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                sortKey === f.key
+                  ? 'bg-[#4f7cff] text-white'
+                  : 'bg-[#141822] text-gray-400 border border-white/5 hover:text-white'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
 
-        <div className="flex-1" />
-
-        <div className="relative">
+        <div className="relative sm:ml-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             placeholder="Поиск по нику / SteamID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-[280px] pl-9 pr-4 py-2.5 bg-[#141822] border border-white/5 rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/30 transition-all"
+            className="w-full sm:w-[280px] pl-9 pr-4 py-2.5 bg-[#141822] border border-white/5 rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/30 transition-all"
           />
         </div>
       </motion.div>
@@ -301,7 +341,7 @@ export default function PlayersPage() {
         transition={{ delay: 0.1 }}
         className="bg-[#12151e] rounded-xl border border-white/5 overflow-hidden"
       >
-        <div className="grid grid-cols-[40px_1fr_80px_100px_120px] gap-4 px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-wider font-semibold">
+        <div className="hidden sm:grid grid-cols-[40px_1fr_80px_100px_120px] gap-4 px-5 py-3 border-b border-white/5 text-xs text-gray-500 uppercase tracking-wider font-semibold">
           <span>№</span>
           <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-white transition-colors text-left">
             Игрок <SortIcon col="name" />
@@ -322,9 +362,9 @@ export default function PlayersPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: Math.min(i * 0.02, 0.5) }}
-              className="grid grid-cols-[40px_1fr_80px_100px_120px] gap-4 px-5 py-3 hover:bg-[#161a25] transition-colors items-center group"
+              className="grid grid-cols-1 sm:grid-cols-[40px_1fr_80px_100px_120px] gap-2 sm:gap-4 px-5 py-3 hover:bg-[#161a25] transition-colors items-center group"
             >
-              <span className="text-sm text-gray-600">{i + 1}</span>
+              <span className="hidden sm:block text-sm text-gray-600">{i + 1}</span>
 
               <div className="flex items-center gap-3 min-w-0">
                 {player.avatar ? (
@@ -335,7 +375,7 @@ export default function PlayersPage() {
                   </div>
                 )}
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <p className="text-sm font-medium text-white truncate">{player.name || player.nickname || 'Unknown'}</p>
                     {player.staffRole && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 whitespace-nowrap">
@@ -343,7 +383,7 @@ export default function PlayersPage() {
                       </span>
                     )}
                     {player.flags && player.flags.length > 0 && (
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 flex-wrap">
                         {player.flags.map((f, fi) => (
                           <span key={fi} className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                             f.includes('VAC') || f.includes('BAN') ? 'bg-red-500/20 text-red-400' :
@@ -363,7 +403,7 @@ export default function PlayersPage() {
               <span className="text-sm text-gray-300">{(player.kd || 0).toFixed(2)}</span>
               <span className="text-sm text-white font-medium">{(player.kills || 0).toLocaleString()}</span>
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center justify-start sm:justify-end gap-2">
                 <button
                   onClick={() => setSelectedPlayer(player)}
                   className="px-3 py-1.5 bg-[#4f7cff] hover:bg-[#3d6aff] text-white rounded-lg text-xs font-medium transition-all"
