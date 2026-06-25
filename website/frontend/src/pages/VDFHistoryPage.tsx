@@ -201,10 +201,15 @@ export default function VDFHistoryPage() {
                     )}
                   </div>
                   <span className="text-sm text-gray-300 flex-shrink-0 w-16 text-center">{check.count} акк.</span>
-                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs flex-shrink-0 w-16 justify-center ${check.banned_count > 0 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
-                    <AlertCircle className="w-3 h-3" />
-                    {check.banned_count}
-                  </span>
+                  {(() => {
+                    const bannedCount = check.results.filter(isAccountBanned).length;
+                    return (
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs flex-shrink-0 w-16 justify-center ${bannedCount > 0 ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
+                        <AlertCircle className="w-3 h-3" />
+                        {bannedCount}
+                      </span>
+                    );
+                  })()}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {check.attachment_url && (
                       <a
