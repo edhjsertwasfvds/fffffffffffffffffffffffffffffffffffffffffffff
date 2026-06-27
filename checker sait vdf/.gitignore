@@ -1,0 +1,17 @@
+.env
+.env.*
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+*.sqlite3
+*.db
+.DS_Store
+.vscode/
+.idea/
+*.iml
+docker-compose.yml
+start (1).bat
