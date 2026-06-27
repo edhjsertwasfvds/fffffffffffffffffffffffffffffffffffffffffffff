@@ -172,18 +172,18 @@ function getScore(r) {
     // VAC/Game — это предупреждения, а не баны
     if (r.vacBanned) s += 5;
     if (r.gameBans > 0) s += 5;
-    if (!r.onFear) s += 10;
+    if (!r.onFear) s += 5;
     return s;
 }
 
 function makeCard(r, idx) {
     try {
         const score = getScore(r);
-        const isBan = score >= 50;
-        const isWarn = !r.onFear && score < 50;
+        const isBan = r.fearBanned || r.yoomaFound;
+        const isWarn = !isBan && (!r.onFear || r.vacBanned || r.gameBans > 0);
         const cardClass = isBan ? 'banned' : (isWarn ? 'warning' : 'clean');
         const badgeClass = isBan ? 'banned' : (isWarn ? 'warning' : 'clean');
-        const badgeText = isBan ? 'БАН' : (isWarn ? 'НЕТ' : 'ЧИСТ');
+        const badgeText = isBan ? 'БАН' : (isWarn ? 'WARN' : 'ЧИСТ');
 
         const details = [];
 

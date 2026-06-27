@@ -41,8 +41,8 @@ FEAR_API_BASE = os.getenv("FEAR_API_BASE", "https://api.fearproject.ru")
 YOOMA_API = "https://yooma.su/api/public/read/punishments"
 
 http_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(15.0, connect=5.0),
-    limits=httpx.Limits(max_connections=100),
+    timeout=httpx.Timeout(10.0, connect=4.0),
+    limits=httpx.Limits(max_connections=150),
 )
 
 # In-memory caches for fast VDF checks (TTL 5 minutes)
@@ -258,12 +258,12 @@ async def check_steam_batch(steamids: List[str]) -> dict:
         bans_task = http_client.get(
             "https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/",
             params=params,
-            timeout=httpx.Timeout(15.0, connect=5.0),
+            timeout=httpx.Timeout(8.0, connect=4.0),
         )
         summary_task = http_client.get(
             "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/",
             params=params,
-            timeout=httpx.Timeout(15.0, connect=5.0),
+            timeout=httpx.Timeout(8.0, connect=4.0),
         )
         bans_res, summary_res = await asyncio.gather(bans_task, summary_task)
     except Exception as e:
@@ -303,7 +303,7 @@ async def check_fear(steamid: str) -> dict | None:
         "Accept": "application/json",
     }
     try:
-        r = await http_client.get(url, headers=headers, timeout=httpx.Timeout(8.0, connect=5.0))
+        r = await http_client.get(url, headers=headers, timeout=httpx.Timeout(5.0, connect=4.0))
         if r.status_code == 200:
             data = r.json()
             _fear_cache[steamid] = (data, now)
@@ -337,12 +337,12 @@ async def check_yooma(steamid: str) -> dict:
         "Origin": "https://yooma.su",
     }
     try:
-        # yooma.su часто висит — 7 секунд вместо 15
+        # yooma.su часто висит — 5 секунд вместо 15
         r = await http_client.get(
             YOOMA_API,
             params=params,
             headers=headers,
-            timeout=httpx.Timeout(7.0, connect=5.0),
+            timeout=httpx.Timeout(5.0, connect=4.0),
         )
         if r.status_code != 200:
             result = {"found": False, "punishments": []}
@@ -416,8 +416,8 @@ async def check_accounts(steamids: List[str]) -> List[dict]:
         summaries_map.update(res.get("summaries", {}))
 
     # Раздельные семафоры, чтобы Fear и Yooma не блокировали друг друга
-    fear_sem = asyncio.Semaphore(50)
-    yooma_sem = asyncio.Semaphore(50)
+    fear_sem = asyncio.Semaphore(80)
+    yooma_sem = asyncio.Semaphore(80)
 
     async def check_fear_sem(sid: str) -> dict | None:
         async with fear_sem:

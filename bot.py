@@ -4967,10 +4967,16 @@ def _load_vdf_checks():
 
 def _save_vdf_checks_to_file():
     try:
-        _save_json_atomic(VDF_CHECKS_FILE, {
+        payload = {
             "counter": _vdf_check_counter,
             "checks": _vdf_checks,
-        })
+        }
+        _save_json_atomic(VDF_CHECKS_FILE, payload)
+        if _db.db_is_available():
+            try:
+                _db.db_save("vdf_checks.json", payload)
+            except Exception as e:
+                print(f"⚠️ Ошибка сохранения vdf_checks.json в БД: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка сохранения vdf_checks.json: {e}")
 
