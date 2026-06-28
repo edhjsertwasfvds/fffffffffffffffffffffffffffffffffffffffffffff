@@ -8726,7 +8726,8 @@ async def on_ready():
     bot.add_view(TicketControlView())
     bot.add_view(CheckerDMButton())
     bot.add_view(LeaderboardView())
-    bot.add_view(RegistrationConfirmView(""))  # custom_id позволяет обрабатывать через on_interaction
+    # RegistrationConfirmView не регистрируем как persistent — у него динамические custom_id и timeout.
+    # Обработка идёт через on_interaction по префиксу reg_confirm:
 
     # Запускаем rate-limited отправщик логов
     _start_log_sender()
