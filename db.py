@@ -71,6 +71,7 @@ def _init_table():
                 CREATE TABLE IF NOT EXISTS vdf_history (
                     id SERIAL PRIMARY KEY,
                     check_id INTEGER,
+                    source VARCHAR(16) DEFAULT 'bot',
                     steamid VARCHAR(32) NOT NULL,
                     nickname TEXT,
                     fear_banned BOOLEAN DEFAULT FALSE,
@@ -98,6 +99,9 @@ def _init_table():
             """)
             cur.execute("""
                 ALTER TABLE vdf_history ADD COLUMN IF NOT EXISTS message_url TEXT
+            """)
+            cur.execute("""
+                ALTER TABLE vdf_history ADD COLUMN IF NOT EXISTS source VARCHAR(16) DEFAULT 'bot'
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS admins (
@@ -381,7 +385,7 @@ def db_get_all_linked_steamids(steamid: str) -> list[str]:
 
 
 def db_save_vdf_history(results: list[dict], config_hash: str = "", filename: str = "", check_id: int = 0,
-                        attachment_url: str = "", message_url: str = "") -> bool:
+                        attachment_url: str = "", message_url: str = "", source: str = "bot") -> bool:
     """Сохранить результаты VDF проверки в историю (по одному на каждый SteamID)."""
     conn = _get_conn()
     if not conn:
@@ -393,12 +397,13 @@ def db_save_vdf_history(results: list[dict], config_hash: str = "", filename: st
             for r in results:
                 cur.execute("""
                     INSERT INTO vdf_history
-                        (check_id, steamid, nickname, fear_banned, fear_reason, fear_unban_time,
+                        (check_id, source, steamid, nickname, fear_banned, fear_reason, fear_unban_time,
                          vac_banned, vac_days_ago, game_bans, yooma_banned, yooma_reason,
                          admin_group, config_hash, filename, attachment_url, message_url, on_fear, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                 """, (
                     check_id,
+                    source,
                     r.get("steamid", ""),
                     r.get("nickname", ""),
                     r.get("fear_banned", False),
@@ -433,6 +438,30 @@ def db_get_max_vdf_check_id() -> int:
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT COALESCE(MAX(check_id), 0) FROM vdf_history")
+            row = cur.fetchone()
+            return row[0] if row else 0
+    except Exception:
+        return 0
+
+
+def db_get_next_vdf_check_id() -> int:
+    """Получить следующий check_id из общей последовательности (сайт + бот)."""
+    conn = _get_conn()
+    if not conn:
+        return 0
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE SEQUENCE IF NOT EXISTS vdf_check_id_seq
+                AS INTEGER
+                START WITH 1
+                INCREMENT BY 1
+                NO CYCLE
+            """)
+            cur.execute("""
+                SELECT setval('vdf_check_id_seq', COALESCE((SELECT MAX(check_id) FROM vdf_history), 0) + 1, false)
+            """)
+            cur.execute("SELECT nextval('vdf_check_id_seq')")
             row = cur.fetchone()
             return row[0] if row else 0
     except Exception:
@@ -1314,18 +1343,25 @@ def panel_update_user_status_and_level(user_id: int, status: str, level: int) ->
         return False
 
 
-def panel_update_user_discord_id(user_id: int, discord_id: str) -> bool:
-    """Обновить discord_id пользователя панели."""
+def panel_update_user_discord_id(user_id: int, discord_id: str, discord_name: str | None = None) -> bool:
+    """Обновить discord_id и discord_name пользователя панели."""
     conn = _get_conn()
     if not conn:
         return False
     try:
         with conn.cursor() as cur:
-            cur.execute("""
-                UPDATE panel_users
-                SET discord_id = %s
-                WHERE id = %s
-            """, (discord_id, user_id))
+            if discord_name:
+                cur.execute("""
+                    UPDATE panel_users
+                    SET discord_id = %s, discord_name = %s
+                    WHERE id = %s
+                """, (discord_id, discord_name, user_id))
+            else:
+                cur.execute("""
+                    UPDATE panel_users
+                    SET discord_id = %s
+                    WHERE id = %s
+                """, (discord_id, user_id))
         return True
     except Exception as e:
         logger.error(f"[DB] Ошибка panel_update_user_discord_id: {e}")

@@ -1454,7 +1454,8 @@ async def cmd_confirm_registration(interaction: discord.Interaction, code: str):
     try:
         await interaction.response.defer(ephemeral=True)
         discord_id = str(interaction.user.id)
-        result = await _confirm_registration(discord_id, code.strip().upper(), interaction)
+        discord_name = str(interaction.user.display_name or interaction.user.name or interaction.user.global_name or "")
+        result = await _confirm_registration(discord_id, code.strip().upper(), interaction, discord_name)
         await interaction.followup.send(result, ephemeral=True)
     except Exception as e:
         _log(f"❌ [Panel] Ошибка команды /confirm: {e}", discord=False)
@@ -4998,15 +4999,22 @@ def _save_vdf_checks_to_file():
 def _save_vdf_check(results: list[dict], filename: str, attachment_url: str = "", message_url: str = "", vdf_text: str = "") -> int:
     global _vdf_check_counter
 
-    # Синхронизация с БД перед выдачей нового ID
+    # Используем общую последовательность БД, чтобы сайт и бот не пересекались по check_id
     try:
-        db_max = _db.db_get_max_vdf_check_id()
-        if db_max >= _vdf_check_counter:
-            _vdf_check_counter = db_max
-    except Exception:
-        pass
+        db_next = _db.db_get_next_vdf_check_id()
+        if db_next > 0:
+            _vdf_check_counter = db_next
+    except Exception as e:
+        print(f"⚠️ Ошибка получения next check_id из БД: {e}")
+        # Fallback на локальный счётчик
+        try:
+            db_max = _db.db_get_max_vdf_check_id()
+            if db_max >= _vdf_check_counter:
+                _vdf_check_counter = db_max
+        except Exception:
+            pass
+        _vdf_check_counter += 1
 
-    _vdf_check_counter += 1
     check_id = _vdf_check_counter
     _vdf_checks[check_id] = {
         "results": results,
@@ -5025,7 +5033,7 @@ def _save_vdf_check(results: list[dict], filename: str, attachment_url: str = ""
             config_hash = hashlib.sha256(vdf_text.encode("utf-8", errors="ignore")).hexdigest()[:64]
             _db.db_save_config_accounts(config_hash, steamids, filename, vdf_text)
             _db.db_save_vdf_history(results, config_hash=config_hash, filename=filename, check_id=check_id,
-                                    attachment_url=attachment_url, message_url=message_url)
+                                    attachment_url=attachment_url, message_url=message_url, source="bot")
     except Exception as e:
         print(f"⚠️ Ошибка сохранения VDF в PostgreSQL: {e}")
 
@@ -8431,7 +8439,7 @@ async def _initial_sync():
     except Exception as e:
         _log(f"⚠️ Первичная синхронизация не удалась: {e}")
 
-async def _confirm_registration(discord_id: str, confirmation_code: str, interaction_or_ctx=None) -> str:
+async def _confirm_registration(discord_id: str, confirmation_code: str, interaction_or_ctx=None, discord_name: str | None = None) -> str:
     """Подтверждает регистрацию по коду. Возвращает текст ответа."""
     confirm = _db.panel_get_registration_confirmation(confirmation_code)
     if not confirm:
@@ -8452,11 +8460,11 @@ async def _confirm_registration(discord_id: str, confirmation_code: str, interac
     # Определяем уровень по ролям на серверах
     level = await _resolve_level_from_discord_roles(discord_id)
 
-    # Активируем пользователя
+    # Активируем пользователя, сохраняем Discord ID и имя
     _db.panel_update_registration_confirmation(confirm["id"], "confirmed", level)
-    _db.panel_update_user_discord_id(expected_user_id, discord_id)
+    _db.panel_update_user_discord_id(expected_user_id, discord_id, discord_name)
     _db.panel_update_user_status_and_level(expected_user_id, "active", level)
-    _db.panel_log_login_event(expected_user_id, "registration_confirmed", {"level": level, "discord_id": discord_id})
+    _db.panel_log_login_event(expected_user_id, "registration_confirmed", {"level": level, "discord_id": discord_id, "discord_name": discord_name})
 
     _log(f"✅ [Panel] Пользователь {expected_user_id} подтвердил регистрацию. Discord={discord_id}, level={level}", discord=False)
     return (
@@ -8466,12 +8474,43 @@ async def _confirm_registration(discord_id: str, confirmation_code: str, interac
     )
 
 
+def _group_name_to_panel_level(group_name: str | None) -> int:
+    """Маппинг Fear-группы в уровень панели (fallback без Discord intents)."""
+    if not group_name:
+        return 0
+    g = str(group_name).strip().upper()
+    mapping = {
+        "MLMODER": 1,
+        "МЛ. МОДЕР": 1,
+        "MODER": 2,
+        "МОДЕР": 2,
+        "STAFF": 3,
+        "СТАФФ": 3,
+        "STMODER": 3,
+        "СТ. МОДЕР": 3,
+        "STADMIN": 4,
+        "СТ. АДМИНИСТРАТОР": 4,
+        "GLADMIN": 5,
+        "ГЛ. АДМИНИСТРАТОР": 5,
+        "ГЛАВНЫЙ АДМИНИСТРАТОР": 5,
+    }
+    return mapping.get(g, 0)
+
+
 async def _resolve_level_from_discord_roles(discord_id: str) -> int:
-    """Определяет уровень по ролям пользователя на Discord-серверах."""
+    """Определяет уровень по ролям Discord либо по кэшу стаффа (fallback без intents)."""
     # Сначала проверяем force level 5
     force_ids = set(str(x).strip() for x in (os.getenv("DISCORD_FORCE_LEVEL_5_IDS") or "").split(",") if x.strip())
     if discord_id in force_ids:
         return 5
+
+    # Fallback по staff_db.json — не требует privileged intents.
+    staff_entry = _get_staff_by_discord(discord_id)
+    if staff_entry:
+        fallback_level = _group_name_to_panel_level(staff_entry.get("group_name") or staff_entry.get("role"))
+        if fallback_level > 0:
+            _log(f"[Panel] Уровень по staff_db: {discord_id} -> {fallback_level} (group={staff_entry.get('group_name')})", discord=False)
+            return fallback_level
 
     # Проверяем блокирующие роли
     blocked_ids = set(str(x).strip() for x in (os.getenv("DISCORD_BLOCKED_ROLE_IDS") or "").split(",") if x.strip())
@@ -8479,6 +8518,7 @@ async def _resolve_level_from_discord_roles(discord_id: str) -> int:
     # Собираем роли со всех серверов, где есть бот
     user_roles = set()
     member_found = False
+    intents_error = False
     for guild in bot.guilds:
         try:
             member = guild.get_member(int(discord_id))
@@ -8486,6 +8526,7 @@ async def _resolve_level_from_discord_roles(discord_id: str) -> int:
                 try:
                     member = await guild.fetch_member(int(discord_id))
                 except discord.errors.PrivilegedIntentsRequired as e:
+                    intents_error = True
                     _log(f"⚠️ [Panel] Discord intents не включены: нельзя получить роли. {e}", discord=False)
                     continue
                 except Exception:
@@ -8498,7 +8539,10 @@ async def _resolve_level_from_discord_roles(discord_id: str) -> int:
             continue
 
     if not member_found:
-        _log(f"⚠️ [Panel] Участник {discord_id} не найден на серверах. Возможно, intents не включены или пользователь не на сервере.", discord=False)
+        if intents_error:
+            _log(f"⚠️ [Panel] Участник {discord_id} не получен через Discord intents. Используем staff_db fallback.", discord=False)
+        else:
+            _log(f"⚠️ [Panel] Участник {discord_id} не найден на серверах.", discord=False)
 
     if user_roles & blocked_ids:
         return 0
