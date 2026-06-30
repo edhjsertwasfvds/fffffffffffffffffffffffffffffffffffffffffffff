@@ -761,7 +761,7 @@ def db_get_admin_punishment_counts(admin_steamid: str, since_ts: int = 0, until_
         return {"bans": 0, "mutes": 0}
     try:
         with conn.cursor() as cur:
-            status_filter = "AND status IN (1, 4)" if exclude_ticket_reasons else ""
+            status_filter = "AND status IS DISTINCT FROM 2" if exclude_ticket_reasons else ""
             reason_filter = """
                 AND lower(coalesce(reason, '')) !~* '(напиши.*тикет.*дс|тикет.*дс|ticket.*дс|ticket.*ds|discord|напиши.*дс)'
             """ if exclude_ticket_reasons else ""
@@ -808,7 +808,7 @@ def db_get_top_punish_admins(since_ts: int = 0, until_ts: int = None, limit: int
                 FROM punishments
                 WHERE created >= %s
                   {until_filter}
-                  AND status IN (1, 4)
+                  AND status IS DISTINCT FROM 2
                   AND lower(coalesce(reason, '')) !~* '(напиши.*тикет.*дс|тикет.*дс|ticket.*дс|ticket.*ds|discord|напиши.*дс)'
                 GROUP BY admin_steamid
                 ORDER BY total DESC, bans DESC
@@ -828,7 +828,7 @@ def db_get_admin_punishment_counts_panel(admin_steamid: str, since_ts: int = 0, 
         return {"bans": 0, "mutes": 0}
     try:
         with conn.cursor() as cur:
-            status_filter = "AND status IN (1, 4)" if exclude_ticket_reasons else ""
+            status_filter = "AND status IS DISTINCT FROM 2" if exclude_ticket_reasons else ""
             reason_filter = """
                 AND lower(coalesce(reason, '')) !~* '(напиши.*тикет.*дс|тикет.*дс|ticket.*дс|ticket.*ds|discord|напиши.*дс)'
             """ if exclude_ticket_reasons else ""
@@ -875,7 +875,7 @@ def db_get_top_punish_admins_panel(since_ts: int = 0, until_ts: int = None, limi
                 FROM panel_fear_punishments
                 WHERE created >= %s
                   {until_filter}
-                  AND status IN (1, 4)
+                  AND status IS DISTINCT FROM 2
                   AND lower(coalesce(reason, '')) !~* '(напиши.*тикет.*дс|тикет.*дс|ticket.*дс|ticket.*ds|discord|напиши.*дс)'
                 GROUP BY admin_steamid
                 ORDER BY total DESC, bans DESC
@@ -1163,22 +1163,13 @@ def db_get_admin_group(steamid: str) -> str:
 
 
 def db_get_admin_name(steamid: str) -> str:
-    """Получить имя админа по steamid из таблиц admins/profiles/panel_fear_punishments."""
+    """Получить имя админа по steamid. Сначала актуальное имя с сайта, потом admins/profiles."""
     conn = _get_conn()
     if not conn:
         return ""
     try:
         with conn.cursor() as cur:
-            # 1. admins/profiles
-            cur.execute("""
-                SELECT COALESCE(p.name, a.raw_json->>'name', a.group_display_name) as name
-                FROM admins a LEFT JOIN profiles p ON p.steamid = a.steamid
-                WHERE a.steamid = %s
-            """, (steamid,))
-            row = cur.fetchone()
-            if row and row["name"]:
-                return row["name"]
-            # 2. panel_fear_punishments (актуальное имя на сайте)
+            # 1. panel_fear_punishments — актуальное имя, которое видно в статистике сайта
             cur.execute("""
                 SELECT admin_name
                 FROM panel_fear_punishments
@@ -1189,6 +1180,15 @@ def db_get_admin_name(steamid: str) -> str:
             row = cur.fetchone()
             if row and row["admin_name"]:
                 return row["admin_name"]
+            # 2. admins/profiles (fallback)
+            cur.execute("""
+                SELECT COALESCE(p.name, a.raw_json->>'name', a.group_display_name) as name
+                FROM admins a LEFT JOIN profiles p ON p.steamid = a.steamid
+                WHERE a.steamid = %s
+            """, (steamid,))
+            row = cur.fetchone()
+            if row and row["name"]:
+                return row["name"]
             return ""
     except Exception as e:
         logger.error(f"[DB] Ошибка get_admin_name: {e}")

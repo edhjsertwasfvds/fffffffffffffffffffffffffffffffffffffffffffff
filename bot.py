@@ -5074,6 +5074,29 @@ async def _recheck_vdf_check(check_id: int, steamids: list[str]):
                 updated += 1
         _vdf_checks[check_id]["last_recheck"] = datetime.now(timezone.utc).isoformat()
         _save_vdf_checks_to_file()
+
+        # ── Обновляем общую БД (PostgreSQL) ──
+        try:
+            if _db.db_is_available() and existing:
+                steamids_for_db = [r.get("steamid") for r in existing if r.get("steamid")]
+                if steamids_for_db:
+                    vdf_text = _vdf_checks[check_id].get("vdf_text", "")
+                    config_hash = ""
+                    if vdf_text:
+                        config_hash = hashlib.sha256(vdf_text.encode("utf-8", errors="ignore")).hexdigest()[:64]
+                    _db.db_save_vdf_history(
+                        existing,
+                        config_hash=config_hash,
+                        filename=_vdf_checks[check_id].get("filename", ""),
+                        check_id=check_id,
+                        attachment_url=_vdf_checks[check_id].get("attachment_url", ""),
+                        message_url=_vdf_checks[check_id].get("message_url", ""),
+                        source="bot"
+                    )
+                    _log(f"🔄 [DB] VDF #{check_id} перезаписана в PostgreSQL", discord=False)
+        except Exception as e:
+            _log(f"⚠️ [DB] VDF recheck #{check_id} save error: {e}", discord=False)
+
         _log(f"🔄 VDF #{check_id}: обновлено {updated}/{len(steamids)} аккаунтов", discord=False)
     except Exception as e:
         _log(f"⚠️ VDF recheck #{check_id} ошибка: {e}", discord=False)
