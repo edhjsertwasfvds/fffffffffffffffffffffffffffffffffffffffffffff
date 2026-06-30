@@ -9475,14 +9475,14 @@ async def _check_vdf_accounts(steamids: list[str]) -> list[dict]:
         fear_ban_map = {sid: ban_data for sid, ban_data in zip(steamids, fear_ban_checks)}
         fear_punish_map = {sid: punish_list for sid, punish_list in zip(steamids, fear_punish_checks)}
 
-        def _is_active_or_expired_ban(p):
-            """Считаем бан валидным, если статус активный (1) или истёкший (4).
-            Снятые (2) и другие не считаем."""
+        def _is_active_ban(p):
+            """Считаем бан валидным только если статус активный (1).
+            Снятые (2), истёкшие (4) и другие не считаем."""
             st = p.get("status")
             if isinstance(st, int):
-                return st in (1, 4)
+                return st == 1
             try:
-                return int(st) in (1, 4)
+                return int(st) == 1
             except Exception:
                 return False
 
@@ -9521,8 +9521,8 @@ async def _check_vdf_accounts(steamids: list[str]) -> list[dict]:
             fear_name     = fear.get("name", "") if fear else ""
 
             # Самый надёжный источник — /punishments/search?q=steamid&type=1.
-            # Если найден валидный бан (active/expired), доверяем ему.
-            valid_bans = [p for p in fear_punishments if _is_active_or_expired_ban(p)]
+            # Если найден активный бан (status=1), доверяем ему.
+            valid_bans = [p for p in fear_punishments if _is_active_ban(p)]
             if valid_bans:
                 primary = valid_bans[0]
                 ban_info = {
