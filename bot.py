@@ -10818,11 +10818,11 @@ _PAY_ROLE_FIXED = {
 
 _PAY_ROLE_NORMS = {
     "ML": {"punish": 0, "tickets": 0},    # младший — без норм и без выплаты
-    "M": {"punish": 100, "tickets": 0},
-    "STM": {"punish": 60, "tickets": 0},
-    "STA": {"punish": 40, "tickets": 0},
-    "GA": {"punish": 0, "tickets": 0},
-    "CURATOR": {"punish": 0, "tickets": 0},
+    "M": {"punish": 100, "tickets": 150},
+    "STM": {"punish": 60, "tickets": 150},
+    "STA": {"punish": 40, "tickets": 150},
+    "GA": {"punish": 0, "tickets": 150},
+    "CURATOR": {"punish": 0, "tickets": 150},
 }
 
 _PAY_BAN_TIERS = [
@@ -10910,7 +10910,8 @@ def _ts_to_ym(ts: int) -> str:
     steamid="SteamID админа",
     rank="Ранг проверки",
     period="Период расчёта",
-    tickets="Количество тикетов (если не указано — из БД за месяц/прошлый месяц, для week=0)"
+    tickets="Количество тикетов (если не указано — из БД за месяц/прошлый месяц, для week=0)",
+    ticket_top_place="Ручное место в топе по тикетам (1–3). Если не указано — из БД"
 )
 @app_commands.choices(
     rank=[
@@ -10924,6 +10925,11 @@ def _ts_to_ym(ts: int) -> str:
         app_commands.Choice(name="Текущий месяц", value="month"),
         app_commands.Choice(name="Прошлый месяц", value="prev_month"),
         app_commands.Choice(name="Последние 7 дней", value="week"),
+    ],
+    ticket_top_place=[
+        app_commands.Choice(name="1 место", value=1),
+        app_commands.Choice(name="2 место", value=2),
+        app_commands.Choice(name="3 место", value=3),
     ]
 )
 async def cmd_calc_pay(
@@ -10932,6 +10938,7 @@ async def cmd_calc_pay(
     rank: app_commands.Choice[str],
     period: app_commands.Choice[str] = None,
     tickets: int = None,
+    ticket_top_place: app_commands.Choice[int] = None,
 ):
     await interaction.response.defer(ephemeral=True)
 
@@ -11008,15 +11015,20 @@ async def cmd_calc_pay(
             _log(f"⚠️ [calc_pay] Ошибка топа наказаний: {e}", discord=False)
 
         if period_value in ("month", "prev_month"):
-            try:
-                top_ticket = _db.db_get_top_ticket_admins(ym, limit=3)
-                for i, row in enumerate(top_ticket, 1):
-                    if str(row.get("steam_id") or "").strip() == str(steamid).strip():
-                        top_ticket_place = i
-                        top_ticket_prize = _PAY_TOP_TICKET_PRIZES[i - 1] or 0
-                        break
-            except Exception as e:
-                _log(f"⚠️ [calc_pay] Ошибка топа тикетов: {e}", discord=False)
+            if ticket_top_place is not None:
+                place = ticket_top_place.value
+                top_ticket_place = place
+                top_ticket_prize = _PAY_TOP_TICKET_PRIZES[place - 1] or 0
+            elif _db.db_is_available():
+                try:
+                    top_ticket = _db.db_get_top_ticket_admins(ym, limit=3)
+                    for i, row in enumerate(top_ticket, 1):
+                        if str(row.get("steam_id") or "").strip() == str(steamid).strip():
+                            top_ticket_place = i
+                            top_ticket_prize = _PAY_TOP_TICKET_PRIZES[i - 1] or 0
+                            break
+                except Exception as e:
+                    _log(f"⚠️ [calc_pay] Ошибка топа тикетов: {e}", discord=False)
 
     # Расчёт
     pay_bans = _pay_bans_by_count(bans)
